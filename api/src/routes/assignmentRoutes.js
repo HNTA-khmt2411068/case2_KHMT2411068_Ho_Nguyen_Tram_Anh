@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+const assignmentController = require('../controllers/assignmentController');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { checkTaskPermission } = require('../middleware/permissionMiddleware');
+
+router.use(authMiddleware);
+
+
+router.post('/:id/assignees', checkTaskPermission('editor'), assignmentController.assignTask);
+
+router.delete('/:id/assignees/:userId', checkTaskPermission('editor'), assignmentController.unassignUser);
+
+module.exports = router;
