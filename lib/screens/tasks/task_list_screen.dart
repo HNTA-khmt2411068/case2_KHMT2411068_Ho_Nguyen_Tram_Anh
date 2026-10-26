@@ -3,6 +3,7 @@ import '../../models/task.dart';
 import '../../services/task_service.dart';
 import '../../widgets/task_card.dart';
 import 'task_detail_screen.dart';
+import 'task_create_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -18,7 +19,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   void initState() {
     super.initState();
-    _tasksFuture = _taskService.getTasks();
+    _loadTasks();
+  }
+
+  void _loadTasks() {
+    setState(() {
+      _tasksFuture = _taskService.getTasks();
+    });
   }
 
   @override
@@ -45,18 +52,31 @@ class _TaskListScreenState extends State<TaskListScreen> {
               final task = tasks[index];
               return TaskCard(
                 task: task,
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => TaskDetailScreen(taskId: task.id),
                     ),
                   );
+                  _loadTasks();
                 },
               );
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TaskCreateScreen()),
+          );
+          if (result == true) {
+            _loadTasks();
+          }
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

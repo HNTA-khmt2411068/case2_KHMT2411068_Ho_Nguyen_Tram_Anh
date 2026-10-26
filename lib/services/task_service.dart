@@ -1,13 +1,10 @@
 import 'dart:convert';
+import 'dart:convert';
 import 'api_client.dart';
 import '../models/task.dart';
 
 class TaskService {
-  final ApiClient _apiClient = ApiClient();
-
-
   Future<List<Task>> getTasks() async {
-
     final response = await ApiClient.get('/tasks');
     if (response.statusCode == 200) {
       List<dynamic> body = jsonDecode(response.body);
@@ -17,6 +14,7 @@ class TaskService {
     }
   }
 
+
   Future<Task> getTaskById(String id) async {
     final response = await ApiClient.get('/tasks/$id');
     if (response.statusCode == 200) {
@@ -24,5 +22,25 @@ class TaskService {
     } else {
       throw Exception('Không thể tải chi tiết công việc');
     }
+  }
+
+  Future<bool> createTask(Map<String, dynamic> taskData) async {
+    final response = await ApiClient.post('/tasks', body: taskData);
+    return response.statusCode == 201;
+  }
+
+  Future<bool> updateTask(String id, Map<String, dynamic> taskData) async {
+    final response = await ApiClient.put('/tasks/$id', body: taskData);
+    return response.statusCode == 200;
+  }
+
+  Future<bool> updateTaskStatus(String id, String status) async {
+    final response = await ApiClient.patch('/tasks/$id/status', body: {'status': status});
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteTask(String id) async {
+    final response = await ApiClient.delete('/tasks/$id');
+    return response.statusCode == 200;
   }
 }
