@@ -70,4 +70,38 @@ class AuthService {
     );
     return jsonDecode(response.body);
   }
+
+  static Future<List<dynamic>> getUsers(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return [];
+  }
+
+  static Future assignTask(
+      String token,
+      String taskId, {
+        required List<String> assigneeIds,
+        String? primaryAssigneeId,
+      }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/$taskId/assign'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'assigneeIds': assigneeIds,
+        'primaryAssigneeId': primaryAssigneeId,
+      }),
+    );
+    return jsonDecode(response.body);
+  }
 }
