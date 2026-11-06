@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 
 const authRoutes = require('./routes/authRoutes');
@@ -9,6 +10,7 @@ const taskShareRoutes = require('./routes/taskShareRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
 
+app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
