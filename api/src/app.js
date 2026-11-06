@@ -9,6 +9,7 @@ const assignmentRoutes = require('./routes/assignmentRoutes');
 const taskShareRoutes = require('./routes/taskShareRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -20,6 +21,11 @@ app.use('/api/tasks', assignmentRoutes);
 app.use('/api/tasks', taskShareRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/tasks/:id/shares', taskShareRoutes);
 
 module.exports = app;
+
+
+
+
 
