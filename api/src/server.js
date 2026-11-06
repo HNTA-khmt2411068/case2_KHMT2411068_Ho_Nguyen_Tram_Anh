@@ -1,15 +1,16 @@
-const express = require('express');
+const app = require('./app');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./config/database');
 
-const app = express();
 app.use(cors());
-app.use(express.json());
+
+app.use((req, res, next) => {
+  console.log(`📩 [${req.method}] ${req.originalUrl}`);
+  next();
+});
 
 connectDB();
-
-app.use('/api/auth', require('./routes/authRoutes'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
