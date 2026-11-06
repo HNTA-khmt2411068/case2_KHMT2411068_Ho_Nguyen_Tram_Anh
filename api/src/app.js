@@ -22,3 +22,4 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
 module.exports = app;
+
