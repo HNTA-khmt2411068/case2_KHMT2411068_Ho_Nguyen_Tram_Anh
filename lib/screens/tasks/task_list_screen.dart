@@ -4,6 +4,7 @@ import '../../services/task_service.dart';
 import '../profile/profile_screen.dart';
 import '../assignment/assign_task_screen.dart';
 import '../sharing/task_sharing_screen.dart';
+import '../notifications/notification_screen.dart';
 import 'task_create_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
@@ -60,6 +61,18 @@ class _TaskListScreenState extends State<TaskListScreen> {
       appBar: AppBar(
         title: const Text('Danh sách công việc'),
         actions: [
+          // Icon Quả Chuông Thông Báo
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationScreen(token: widget.token),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
