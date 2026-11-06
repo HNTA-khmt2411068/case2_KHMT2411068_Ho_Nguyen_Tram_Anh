@@ -3,6 +3,7 @@ import '../../models/task.dart';
 import '../../services/task_service.dart';
 import '../profile/profile_screen.dart';
 import '../assignment/assign_task_screen.dart';
+import '../sharing/task_sharing_screen.dart';
 import 'task_create_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
@@ -106,6 +107,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
                           ),
                         );
                         if (result == true) _fetchTasks();
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share, color: Colors.purple),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TaskSharingScreen(
+                              token: widget.token,
+                              taskId: task.id,
+                              taskTitle: task.title,
+                            ),
+                          ),
+                        );
                       },
                     ),
                     IconButton(
