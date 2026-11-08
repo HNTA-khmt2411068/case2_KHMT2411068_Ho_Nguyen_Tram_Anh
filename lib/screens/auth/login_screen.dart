@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'register_screen.dart';
+import '../tasks/task_list_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: const Key('LoginScreen'));
@@ -14,6 +15,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -31,6 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (res['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đăng nhập thành công!')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => TaskListScreen(token: res['token'])),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,5 +101,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-

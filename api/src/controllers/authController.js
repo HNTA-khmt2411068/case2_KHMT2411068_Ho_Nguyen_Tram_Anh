@@ -59,78 +59,68 @@ exports.login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
+};
 
-  exports.getMe = async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id).select('-passwordHash');
-      if (!user) {
-        return res.status(404).json({ message: 'Người dùng không tồn tại!' });
-      }
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) {
+      return res.status(404).json({ message: 'Người dùng không tồn tại!' });
     }
-  };
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
 
-  exports.updateMe = async (req, res) => {
-    try {
-      const { fullName, avatarUrl } = req.body;
-      const user = await User.findById(req.user.id);
+exports.updateMe = async (req, res) => {
+  try {
+    const { fullName, avatarUrl } = req.body;
+    const user = await User.findById(req.user.id);
 
-      if (!user) {
-        return res.status(404).json({ message: 'Người dùng không tồn tại!' });
-      }
-
-      if (fullName) user.fullName = fullName;
-      if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-
-      await user.save();
-      res.json({ message: 'Cập nhật thông tin thành công!', user });
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    if (!user) {
+      return res.status(404).json({ message: 'Người dùng không tồn tại!' });
     }
-  };
 
-  exports.changePassword = async (req, res) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      const user = await User.findById(req.user.id);
+    if (fullName) user.fullName = fullName;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
-      if (!user) {
-        return res.status(404).json({ message: 'Người dùng không tồn tại!' });
-      }
+    await user.save();
+    res.json({ message: 'Cập nhật thông tin thành công!', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
 
-      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng!' });
-      }
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
 
-      const salt = await bcrypt.genSalt(10);
-      user.passwordHash = await bcrypt.hash(newPassword, salt);
-      await user.save();
-
-      res.json({ message: 'Đổi mật khẩu thành công!' });
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    if (!user) {
+      return res.status(404).json({ message: 'Người dùng không tồn tại!' });
     }
-  };
 
-  exports.getUsers = async (req, res) => {
-    try {
-      const users = await User.find({}, '_id fullName email avatarUrl');
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng!' });
     }
-  };
 
-  exports.getUsers = async (req, res) => {
-    try {
-      const User = require('../models/User');
-      const users = await User.find({}, '_id fullName email avatarUrl');
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-    }
-  };
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Đổi mật khẩu thành công!' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, '_id fullName email avatarUrl');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
 };

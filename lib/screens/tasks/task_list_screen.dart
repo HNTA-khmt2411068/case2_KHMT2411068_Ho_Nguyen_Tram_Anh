@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/task.dart';
 import '../../services/task_service.dart';
-import '../profile/profile_screen.dart';
-import '../assignment/assign_task_screen.dart';
-import '../sharing/task_sharing_screen.dart';
-import '../notifications/notification_screen.dart';
 import 'task_create_screen.dart';
+import 'task_detail_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   final String token;
@@ -16,8 +12,8 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  List<Task> _tasks = [];
-  bool _isLoading = true;
+  List<dynamic> _tasks = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -25,7 +21,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _fetchTasks();
   }
 
-  void _fetchTasks() async {
+  Future<void> _fetchTasks() async {
     setState(() => _isLoading = true);
     final tasks = await TaskService.getTasks(widget.token);
     setState(() {
@@ -34,24 +30,14 @@ class _TaskListScreenState extends State<TaskListScreen> {
     });
   }
 
-  void _deleteTask(String taskId) async {
-    final res = await TaskService.deleteTask(widget.token, taskId);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Đã xóa công việc')),
-      );
-      _fetchTasks();
-    }
-  }
-
-  Color _getPriorityColor(String priority) {
+  Color _getPriorityColor(String? priority) {
     switch (priority) {
       case 'high':
         return Colors.red;
-      case 'medium':
-        return Colors.orange;
-      default:
+      case 'low':
         return Colors.green;
+      default:
+        return Colors.orange;
     }
   }
 
@@ -61,104 +47,70 @@ class _TaskListScreenState extends State<TaskListScreen> {
       appBar: AppBar(
         title: const Text('Danh sách công việc'),
         actions: [
-          // Icon Quả Chuông Thông Báo
           IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => NotificationScreen(token: widget.token),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileScreen(token: widget.token)),
-              );
-            },
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchTasks,
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _tasks.isEmpty
-          ? const Center(child: Text('Chưa có công việc nào!'))
-          : RefreshIndicator(
-        onRefresh: () async => _fetchTasks(),
-        child: ListView.builder(
-          itemCount: _tasks.length,
-          itemBuilder: (context, index) {
-            final task = _tasks[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: ListTile(
-                title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(task.description),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Chip(
-                      label: Text(task.priority, style: const TextStyle(color: Colors.white)),
-                      backgroundColor: _getPriorityColor(task.priority),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person_add, color: Colors.blue),
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AssignTaskScreen(
-                              token: widget.token,
-                              taskId: task.id,
-                              taskTitle: task.title,
-                            ),
-                          ),
-                        );
-                        if (result == true) _fetchTasks();
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.share, color: Colors.purple),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TaskSharingScreen(
-                              token: widget.token,
-                              taskId: task.id,
-                              taskTitle: task.title,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _deleteTask(task.id),
-                    ),
-                  ],
+          ? const Center(child: Text('Chưa có công việc nào'))
+          : ListView.builder(
+        itemCount: _tasks.length,
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ListTile(
+              title: Text(
+                task['title'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text('Trạng thái: ${task['status'] ?? 'todo'}'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getPriorityColor(task['priority']),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  task['priority'] ?? 'medium',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
-            );
-          },
-        ),
+              onTap: () async {
+                final refresh = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TaskDetailScreen(
+                      task: task,
+                      token: widget.token,
+                    ),
+                  ),
+                );
+                if (refresh == true) {
+                  _fetchTasks();
+                }
+              },
+            ),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.add),
         onPressed: () async {
-          final result = await Navigator.push(
+          final refresh = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => TaskCreateScreen(token: widget.token)),
+            MaterialPageRoute(
+              builder: (context) => TaskCreateScreen(token: widget.token),
+            ),
           );
-          if (result == true) {
+          if (refresh == true) {
             _fetchTasks();
           }
         },
-        child: const Icon(Icons.add),
       ),
     );
   }

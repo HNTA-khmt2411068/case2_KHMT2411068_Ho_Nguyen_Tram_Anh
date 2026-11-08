@@ -45,27 +45,9 @@ exports.shareTask = async (req, res) => {
 
 exports.getTaskShares = async (req, res) => {
   try {
-    const shares = await TaskShare.find({ taskId: req.params.id })
-      .populate('userId', 'fullName email avatarUrl')
-      .populate('sharedBy', 'fullName email');
+    const taskId = req.params.id;
+    const shares = await TaskShare.find({ taskId }).populate('userId', 'fullName email');
     res.json(shares);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-exports.updateSharePermission = async (req, res) => {
-  try {
-    const { permission } = req.body;
-    const share = await TaskShare.findById(req.params.shareId);
-
-    if (!share) {
-      return res.status(404).json({ message: 'Không tìm thấy thông tin chia sẻ!' });
-    }
-
-    share.permission = permission;
-    await share.save();
-    res.json({ message: 'Cập nhật quyền thành công!', share });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
@@ -73,37 +55,12 @@ exports.updateSharePermission = async (req, res) => {
 
 exports.revokeShare = async (req, res) => {
   try {
-    const share = await TaskShare.findByIdAndDelete(req.params.shareId);
+    const { shareId } = req.params;
+    const share = await TaskShare.findByIdAndDelete(shareId);
     if (!share) {
-      return res.status(404).json({ message: 'Không tìm thấy thông tin chia sẻ!' });
+      return res.status(404).json({ message: 'Không tìm thấy quyền chia sẻ!' });
     }
-    res.json({ message: 'Thu hồi quyền chia sẻ thành công!' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-const Notification = require('../models/Notification');
-
-exports.getNotifications = async (req, res) => {
-  try {
-    const notifications = await Notification.find({ userId: req.user.id })
-      .populate('taskId', 'title status')
-      .sort({ createdAt: -1 });
-    res.json(notifications);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-exports.markAsRead = async (req, res) => {
-  try {
-    const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ message: 'Không tìm thấy thông báo!' });
-
-    notification.isRead = true;
-    await notification.save();
-    res.json({ message: 'Đã đánh dấu đã đọc!' });
+    res.json({ message: 'Đã thu hồi quyền chia sẻ!' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
