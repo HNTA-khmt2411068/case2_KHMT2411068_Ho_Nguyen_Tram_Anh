@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../tasks/task_list_screen.dart';
 import 'register_screen.dart';
 import '../tasks/task_list_screen.dart';
 
@@ -43,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => TaskListScreen(token: res['token'])),
+          MaterialPageRoute(
+            builder: (context) => TaskListScreen(token: res['token']),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
