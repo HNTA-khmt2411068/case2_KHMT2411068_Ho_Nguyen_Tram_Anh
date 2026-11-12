@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'api_client.dart';
 
 class StatisticsService {
-  final ApiClient _client = ApiClient();
-
   Future getTaskStatistics() async {
-    final response = await _client.get('/statistics/tasks');
+    final response = await ApiClient.get('/statistics/tasks');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -13,7 +11,7 @@ class StatisticsService {
   }
 
   Future getAssignmentStatistics() async {
-    final response = await _client.get('/statistics/assignments');
+    final response = await ApiClient.get('/statistics/assignments');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -21,7 +19,7 @@ class StatisticsService {
   }
 
   Future getDeadlineStatistics() async {
-    final response = await _client.get('/statistics/deadlines');
+    final response = await ApiClient.get('/statistics/deadlines');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
