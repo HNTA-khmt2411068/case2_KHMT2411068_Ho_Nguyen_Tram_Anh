@@ -1,57 +1,39 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../utils/constants.dart';
 
 class ApiClient {
-  static String? token;
+  static String baseUrl = 'http://10.0.2.2:5000/api';
 
-  Map<String, String> _headers() {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-    if (token != null && token!.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-    return headers;
+  static Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  static Future<http.Response> get(String endpoint) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    return await http.get(url, headers: _headers);
   }
 
-  Uri _buildUri(String endpoint, [Map<String, String>? queryParams]) {
-    final uri = Uri.parse('${AppConstants.baseUrl}$endpoint');
-    if (queryParams != null && queryParams.isNotEmpty) {
-      return uri.replace(queryParameters: queryParams);
-    }
-    return uri;
-  }
-
-  Future<http.Response> get(String endpoint, {Map<String, String>? query}) {
-    return http.get(_buildUri(endpoint, query), headers: _headers());
-  }
-
-  Future<http.Response> post(String endpoint, {Map<String, dynamic>? body}) {
-    return http.post(
-      _buildUri(endpoint),
-      headers: _headers(),
-      body: body != null ? jsonEncode(body) : null,
+  static Future<http.Response> post(String endpoint, dynamic body) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    return await http.post(
+      url,
+      headers: _headers,
+      body: jsonEncode(body),
     );
   }
 
-  Future<http.Response> put(String endpoint, {Map<String, dynamic>? body}) {
-    return http.put(
-      _buildUri(endpoint),
-      headers: _headers(),
-      body: body != null ? jsonEncode(body) : null,
+  static Future<http.Response> put(String endpoint, dynamic body) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    return await http.put(
+      url,
+      headers: _headers,
+      body: jsonEncode(body),
     );
   }
 
-  Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body}) {
-    return http.patch(
-      _buildUri(endpoint),
-      headers: _headers(),
-      body: body != null ? jsonEncode(body) : null,
-    );
-  }
-
-  Future<http.Response> delete(String endpoint) {
-    return http.delete(_buildUri(endpoint), headers: _headers());
+  static Future<http.Response> delete(String endpoint) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    return await http.delete(url, headers: _headers);
   }
 }
