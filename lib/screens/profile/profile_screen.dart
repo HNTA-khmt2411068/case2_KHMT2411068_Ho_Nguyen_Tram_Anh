@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../models/task.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String token;
-  const ProfileScreen({Key? key, required this.token}) : super(key: key);
+  final List<Task> tasks;
+
+  const ProfileScreen({
+    Key? key,
+    required this.token,
+    this.tasks = const [],
+  }) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -81,9 +88,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int total = widget.tasks.length;
+    final int todo = widget.tasks.where((t) => t.status == 'todo').length;
+    final int inProgress = widget.tasks.where((t) => t.status == 'in_progress').length;
+    final int completed = widget.tasks.where((t) => t.status == 'completed').length;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thông tin cá nhân'),
+        title: const Text('Hồ sơ & Thống kê'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -110,7 +122,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: _updateProfile,
               child: const Text('Cập nhật hồ sơ'),
             ),
-            const Divider(height: 40),
+            const Divider(height: 32),
+            const Text(
+              '📊 Thống kê công việc',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.5,
+              children: [
+                _buildStatCard('Tổng công việc', '$total', Colors.purple),
+                _buildStatCard('Chưa thực hiện', '$todo', Colors.grey),
+                _buildStatCard('Đang thực hiện', '$inProgress', Colors.blue),
+                _buildStatCard('Đã hoàn thành', '$completed', Colors.green),
+              ],
+            ),
+            const Divider(height: 32),
             const Text('Đổi mật khẩu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             TextFormField(
@@ -130,6 +162,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text('Đổi mật khẩu', style: TextStyle(color: Colors.white)),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color) {
+    return Card(
+      color: color.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: color, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 4),
+            Text(title, textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
