@@ -1,232 +1,275 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../models/task.dart';
 import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
+import '../../services/statistics_service.dart';
+import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String token;
+  final List<Task> tasks;
+
+  const ProfileScreen({
+    super.key,
+    required this.token,
+    this.tasks = const [],
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _fullName = 'Người dùng';
-  int _totalTasks = 0;
-  int _todoTasks = 0;
-  int _inProgressTasks = 0;
-  int _completedTasks = 0;
-  int _overdueTasks = 0;
+  final _nameController = TextEditingController();
+  final _currentPassController = TextEditingController();
+  final _newPassController = TextEditingController();
+  final StatisticsService _statisticsService = StatisticsService();
+
+  String _email = '';
   bool _isLoading = true;
+
+  Map<String, dynamic> _taskStats = {};
+  Map<String, dynamic> _assignmentStats = {};
+  Map<String, dynamic> _deadlineStats = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchProfileAndStats();
+    ApiClient.token = widget.token;
+    _loadData();
   }
 
-  Future<void> _fetchProfileAndStats() async {
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _currentPassController.dispose();
+    _newPassController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
     try {
-      final profileRes = await ApiClient.get('/auth/profile');
-      if (profileRes.statusCode == 200) {
-        final profileData = jsonDecode(profileRes.body);
-        _fullName = profileData['fullName'] ?? 'Người dùng';
+      final res = await AuthService.getMe(widget.token);
+      if (res['_id'] != null || res['id'] != null) {
+        _nameController.text = res['fullName'] ?? '';
+        _email = res['email'] ?? '';
       }
 
-      final tasksRes = await ApiClient.get('/tasks');
-      if (tasksRes.statusCode == 200) {
-        final List tasks = jsonDecode(tasksRes.body);
-        final now = DateTime.now();
-
-        _totalTasks = tasks.length;
-        _todoTasks = tasks.where((t) => t['status'] == 'todo' || t['status'] == 'chua_thuc_hien').length;
-        _inProgressTasks = tasks.where((t) => t['status'] == 'in_progress' || t['status'] == 'dang_thuc_hien').length;
-        _completedTasks = tasks.where((t) => t['status'] == 'completed' || t['status'] == 'da_hoan_thanh').length;
-
-        _overdueTasks = tasks.where((t) {
-          if (t['dueDate'] == null) return false;
-          final due = DateTime.tryParse(t['dueDate'].toString());
-          if (due == null) return false;
-          final isDone = t['status'] == 'completed' || t['status'] == 'da_hoan_thanh';
-          return due.isBefore(now) && !isDone;
-        }).length;
-      }
+      final results = await Future.wait([
+        _statisticsService.getTaskStatistics().catchError((_) => <String, dynamic>{}),
+        _statisticsService.getAssignmentStatistics().catchError((_) => <String, dynamic>{}),
+        _statisticsService.getDeadlineStatistics().catchError((_) => <String, dynamic>{}),
+      ]);
 
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _taskStats = results[0];
+          _assignmentStats = results[1];
+          _deadlineStats = results[2];
+          _isLoading = false;
+        });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required Color iconBgColor,
-    required Color iconColor,
-    required String title,
-    required int count,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$count',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+  int _pickInt(Map<String, dynamic> map, List<String> keys, int fallback) {
+    for (final k in keys) {
+      final val = map[k];
+      if (val is int) return val;
+      if (val is num) return val.toInt();
+      if (val is String && int.tryParse(val) != null) return int.parse(val);
+    }
+    if (map['data'] is Map<String, dynamic>) {
+      return _pickInt(map['data'] as Map<String, dynamic>, keys, fallback);
+    }
+    return fallback;
+  }
+
+  void _updateProfile() async {
+    final res = await AuthService.updateMe(widget.token, _nameController.text.trim(), null);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Cập nhật thành công!')),
+      );
+    }
+  }
+
+  void _changePassword() async {
+    if (_currentPassController.text.isEmpty || _newPassController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập đầy đủ mật khẩu!')),
+      );
+      return;
+    }
+
+    final res = await AuthService.changePassword(
+      widget.token,
+      _currentPassController.text,
+      _newPassController.text,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Đổi mật khẩu thất bại!')),
+      );
+      if (res['message'] == 'Đổi mật khẩu thành công!') {
+        _currentPassController.clear();
+        _newPassController.clear();
+      }
+    }
+  }
+
+  void _logout() {
+    ApiClient.token = null;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final int fallbackTotal = widget.tasks.length;
+    final int fallbackTodo = widget.tasks.where((t) => t.status == 'todo').length;
+    final int fallbackInProgress = widget.tasks.where((t) => t.status == 'in_progress').length;
+    final int fallbackCompleted = widget.tasks.where((t) => t.status == 'completed').length;
+
+    final int total = _pickInt(_taskStats, ['total', 'totalTasks'], fallbackTotal);
+    final int todo = _pickInt(_taskStats, ['todo'], fallbackTodo);
+    final int inProgress = _pickInt(_taskStats, ['in_progress', 'inProgress'], fallbackInProgress);
+    final int completed = _pickInt(_taskStats, ['completed'], fallbackCompleted);
+
+    final int assigned = _pickInt(_assignmentStats, ['assignedToMe', 'assigned', 'myTasks', 'totalAssigned'], 0);
+    final int shared = _pickInt(_assignmentStats, ['sharedWithMe', 'shared', 'totalShared'], 0);
+    final int upcoming = _pickInt(_deadlineStats, ['upcoming', 'dueSoon', 'dueIn24h'], 0);
+    final int overdue = _pickInt(_deadlineStats, ['overdue', 'expired'], 0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Cá nhân & Thống kê'),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        titleTextStyle: const TextStyle(
-          color: Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+        title: const Text('Hồ sơ & Thống kê'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+            tooltip: 'Làm mới dữ liệu',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Đăng xuất',
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.blue.shade100,
-                      child: Text(
-                        _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'U',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      _fullName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Thống kê công việc',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
+              Text('Email: $_email', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
-              _buildStatCard(
-                icon: Icons.bar_chart,
-                iconBgColor: Colors.blue.shade50,
-                iconColor: Colors.blue.shade700,
-                title: 'Tổng số công việc',
-                count: _totalTasks,
+              ElevatedButton(
+                onPressed: _updateProfile,
+                child: const Text('Cập nhật hồ sơ'),
               ),
-              _buildStatCard(
-                icon: Icons.assignment_outlined,
-                iconBgColor: Colors.orange.shade50,
-                iconColor: Colors.orange.shade700,
-                title: 'Chưa thực hiện',
-                count: _todoTasks,
+              const Divider(height: 32),
+              const Text(
+                'Thống kê trạng thái công việc',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              _buildStatCard(
-                icon: Icons.sync,
-                iconBgColor: Colors.purple.shade50,
-                iconColor: Colors.purple.shade700,
-                title: 'Đang thực hiện',
-                count: _inProgressTasks,
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.5,
+                children: [
+                  _buildStatCard('Tổng công việc', '$total', Colors.purple),
+                  _buildStatCard('Chưa thực hiện', '$todo', Colors.grey),
+                  _buildStatCard('Đang thực hiện', '$inProgress', Colors.blue),
+                  _buildStatCard('Đã hoàn thành', '$completed', Colors.green),
+                ],
               ),
-              _buildStatCard(
-                icon: Icons.check_circle_outline,
-                iconBgColor: Colors.green.shade50,
-                iconColor: Colors.green.shade700,
-                title: 'Đã hoàn thành',
-                count: _completedTasks,
+              const SizedBox(height: 20),
+              const Text(
+                'Thống kê phân công & thời hạn',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              _buildStatCard(
-                icon: Icons.warning_amber_rounded,
-                iconBgColor: Colors.red.shade50,
-                iconColor: Colors.red.shade700,
-                title: 'Quá hạn hoàn thành',
-                count: _overdueTasks,
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.5,
+                children: [
+                  _buildStatCard('Được giao', '$assigned', Colors.indigo),
+                  _buildStatCard('Được chia sẻ', '$shared', Colors.teal),
+                  _buildStatCard('Sắp đến hạn', '$upcoming', Colors.orange),
+                  _buildStatCard('Quá hạn', '$overdue', Colors.red),
+                ],
+              ),
+              const Divider(height: 32),
+              const Text('Đổi mật khẩu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _currentPassController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Mật khẩu hiện tại', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _newPassController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Mật khẩu mới', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _changePassword,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('Đổi mật khẩu', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color) {
+    return Card(
+      color: color.withValues(alpha: 0.1),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: color, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 4),
+            Text(title, textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
     );
