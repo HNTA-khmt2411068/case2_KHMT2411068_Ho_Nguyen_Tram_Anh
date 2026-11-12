@@ -1,16 +1,16 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Không tìm thấy token xác thực!' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey_default');
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Không có quyền truy cập, vui lòng đăng nhập!' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_123';
+    const decoded = jwt.verify(token, secret);
+
     req.user = decoded;
     next();
   } catch (error) {

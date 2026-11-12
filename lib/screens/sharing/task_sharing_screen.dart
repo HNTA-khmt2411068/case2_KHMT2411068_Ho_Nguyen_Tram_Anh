@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/task_share.dart';
-import '../../services/auth_service.dart';
 import '../../services/task_share_service.dart';
+import '../../services/user_service.dart';
 
 class TaskSharingScreen extends StatefulWidget {
   final String token;
@@ -35,12 +35,14 @@ class _TaskSharingScreenState extends State<TaskSharingScreen> {
   void _loadData() async {
     setState(() => _isLoading = true);
     final shares = await TaskShareService.getTaskShares(widget.token, widget.taskId);
-    final users = await AuthService.getUsers(widget.token);
-    setState(() {
-      _shares = shares;
-      _users = users;
-      _isLoading = false;
-    });
+    final users = await UserService.getUsers(widget.token);
+    if (mounted) {
+      setState(() {
+        _shares = shares;
+        _users = users;
+        _isLoading = false;
+      });
+    }
   }
 
   void _shareTask() async {
@@ -90,8 +92,12 @@ class _TaskSharingScreenState extends State<TaskSharingScreen> {
             const Text('Chọn người nhận chia sẻ:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
               hint: const Text('Chọn thành viên'),
-              value: _selectedUserId,
+              initialValue: _selectedUserId,
               items: _users.map((u) {
                 return DropdownMenuItem<String>(
                   value: u['_id'],
@@ -103,21 +109,30 @@ class _TaskSharingScreenState extends State<TaskSharingScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Text('Phân quyền: '),
-                DropdownButton<String>(
-                  value: _selectedPermission,
-                  items: const [
-                    DropdownMenuItem(value: 'viewer', child: Text('Chỉ xem (Viewer)')),
-                    DropdownMenuItem(value: 'editor', child: Text('Chỉnh sửa (Editor)')),
-                  ],
-                  onChanged: (val) => setState(() => _selectedPermission = val!),
-                ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: _shareTask,
-                  child: const Text('Xác nhận chia sẻ'),
+                const Text('Phân quyền: ', style: TextStyle(fontWeight: FontWeight.w500)),
+                Expanded(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _selectedPermission,
+                    items: const [
+                      DropdownMenuItem(value: 'viewer', child: Text('Chỉ xem (Viewer)')),
+                      DropdownMenuItem(value: 'editor', child: Text('Chỉnh sửa (Editor)')),
+                    ],
+                    onChanged: (val) => setState(() => _selectedPermission = val!),
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: _shareTask,
+                child: const Text('Xác nhận chia sẻ', style: TextStyle(fontSize: 16)),
+              ),
             ),
             const Divider(height: 32),
             const Text('Danh sách người được chia sẻ:', style: TextStyle(fontWeight: FontWeight.bold)),

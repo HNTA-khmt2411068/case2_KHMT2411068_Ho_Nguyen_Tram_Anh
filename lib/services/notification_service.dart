@@ -1,34 +1,44 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/notification.dart';
 
 class NotificationService {
-  static const String baseUrl = 'http://10.0.2.2:3000/api/notifications';
+  static const String baseUrl = 'http://10.0.2.2:3000/api';
 
-  static Future<List<NotificationModel>> getNotifications(String token) async {
-    final response = await http.get(
-      Uri.parse(baseUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((json) => NotificationModel.fromJson(json)).toList();
+  static Future<List<dynamic>> getNotifications(String token) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/notifications'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      return [];
+    } catch (e) {
+      print('Lỗi getNotifications: $e');
+      return [];
     }
-    return [];
   }
 
-  static Future<bool> markAsRead(String token, String notificationId) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl/$notificationId/read'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    return response.statusCode == 200;
+  static Future<void> markAsRead(String token, String notificationId) async {
+    try {
+      await http.patch(
+        Uri.parse('$baseUrl/notifications/$notificationId/read'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } catch (e) {
+      print('Lỗi markAsRead: $e');
+    }
+  }
+
+  static Future<void> markAllAsRead(String token) async {
+    try {
+      await http.patch(
+        Uri.parse('$baseUrl/notifications/read-all'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } catch (e) {
+      print('Lỗi markAllAsRead: $e');
+    }
   }
 }
