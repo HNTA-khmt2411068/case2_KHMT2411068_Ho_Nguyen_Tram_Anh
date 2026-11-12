@@ -3,22 +3,23 @@ import 'package:http/http.dart' as http;
 import '../models/task.dart';
 
 class TaskService {
-  static const String baseUrl = 'http://10.0.2.2:3000/api/tasks';
+  static const String baseUrl = 'http://10.0.2.2:3000/api';
 
   static Future<List<Task>> getTasks(String token) async {
-    final response = await http.get(
-      Uri.parse(baseUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((json) => Task.fromJson(json)).toList();
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/tasks'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        return data.map((item) => Task.fromJson(item as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Lỗi getTasks: $e');
+      return [];
     }
-    return [];
   }
 
   static Future createTask(
@@ -30,45 +31,114 @@ class TaskService {
         DateTime? startDate,
         DateTime? dueDate,
       }) async {
-    final response = await http.post(
-      Uri.parse(baseUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'title': title,
-        'description': description,
-        'priority': priority,
-        'status': status,
-        'startDate': startDate?.toIso8601String(),
-        'dueDate': dueDate?.toIso8601String(),
-      }),
-    );
-    return jsonDecode(response.body);
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/tasks'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': title,
+          'description': description,
+          'priority': priority,
+          'status': status,
+          'startDate': startDate?.toIso8601String(),
+          'dueDate': dueDate?.toIso8601String(),
+        }),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Tạo công việc thất bại'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
   }
 
-  static Future updateStatus(String token, String taskId, String status) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl/$taskId/status'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'status': status}),
-    );
-    return jsonDecode(response.body);
+  static Future updateTask(
+      String token,
+      String taskId, {
+        required String title,
+        required String description,
+        required String priority,
+        required String status,
+        DateTime? startDate,
+        DateTime? dueDate,
+      }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/tasks/$taskId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': title,
+          'description': description,
+          'priority': priority,
+          'status': status,
+          'startDate': startDate?.toIso8601String(),
+          'dueDate': dueDate?.toIso8601String(),
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi cập nhật công việc'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
   }
 
-  static Future deleteTask(String token, String taskId) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/$taskId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    return jsonDecode(response.body);
+  static Future updateTaskStatus(
+      String token,
+      String taskId,
+      String status,
+      ) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/tasks/$taskId/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi cập nhật'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future deleteTask(
+      String token,
+      String taskId,
+      ) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/tasks/$taskId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi xóa công việc'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
   }
 
   static Future assignTask(
@@ -77,17 +147,45 @@ class TaskService {
         required List<String> assigneeIds,
         String? primaryAssigneeId,
       }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$taskId/assign'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'assigneeIds': assigneeIds,
-        'primaryAssigneeId': primaryAssigneeId,
-      }),
-    );
-    return jsonDecode(response.body);
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/tasks/$taskId/assignees'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'assigneeIds': assigneeIds,
+          'primaryAssigneeId': primaryAssigneeId,
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return {
+          'success': true,
+          'data': data,
+          'message': data['message'] ?? 'Phân công thành công!'
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Phân công thất bại'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future<List<dynamic>> getTaskActivities(String token, String taskId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/tasks/$taskId/activities'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 }

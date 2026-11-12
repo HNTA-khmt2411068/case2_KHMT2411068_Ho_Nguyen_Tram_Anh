@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/notification.dart';
 import '../../services/notification_service.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -11,7 +10,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  List<NotificationModel> _notifications = [];
+  List<dynamic> _notifications = [];
   bool _isLoading = true;
 
   @override
@@ -20,63 +19,82 @@ class _NotificationScreenState extends State<NotificationScreen> {
     _fetchNotifications();
   }
 
-  void _fetchNotifications() async {
+  Future<void> _fetchNotifications() async {
     setState(() => _isLoading = true);
-    final notifications = await NotificationService.getNotifications(widget.token);
-    setState(() {
-      _notifications = notifications;
-      _isLoading = false;
-    });
+    try {
+      final data = await NotificationService.getNotifications(widget.token);
+      if (mounted) {
+        setState(() {
+          _notifications = data;
+        });
+      }
+    } catch (e) {
+      print('Lỗi fetch notifications: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  void _markAsRead(String id, int index) async {
-    final success = await NotificationService.markAsRead(widget.token, id);
-    if (success) {
-      setState(() {
-        _notifications[index] = NotificationModel(
-          id: _notifications[index].id,
-          title: _notifications[index].title,
-          message: _notifications[index].message,
-          type: _notifications[index].type,
-          isRead: true,
-          createdAt: _notifications[index].createdAt,
-        );
-      });
-    }
+  void _markAsRead(String id) async {
+    await NotificationService.markAsRead(widget.token, id);
+    if (mounted) _fetchNotifications();
+  }
+
+  void _markAllAsRead() async {
+    await NotificationService.markAllAsRead(widget.token);
+    if (mounted) _fetchNotifications();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Thông báo của tôi')),
+      appBar: AppBar(
+        title: const Text('Thông báo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all),
+            tooltip: 'Đánh dấu tất cả đã đọc',
+            onPressed: _markAllAsRead,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _notifications.isEmpty
-          ? const Center(child: Text('Chưa có thông báo nào!'))
           : RefreshIndicator(
-        onRefresh: () async => _fetchNotifications(),
-        child: ListView.builder(
+        onRefresh: _fetchNotifications,
+        child: _notifications.isEmpty
+            ? ListView(
+          children: const [
+            SizedBox(height: 200),
+            Center(child: Text('Không có thông báo nào!')),
+          ],
+        )
+            : ListView.builder(
           itemCount: _notifications.length,
           itemBuilder: (context, index) {
-            final noti = _notifications[index];
-            return ListTile(
-              tileColor: noti.isRead ? Colors.transparent : Colors.blue.withOpacity(0.08),
-              leading: Icon(
-                noti.type == 'ASSIGNED' ? Icons.assignment_ind : Icons.share,
-                color: noti.isRead ? Colors.grey : Colors.blue,
-              ),
-              title: Text(
-                noti.title,
-                style: TextStyle(
-                  fontWeight: noti.isRead ? FontWeight.normal : FontWeight.bold,
+            final item = _notifications[index];
+            final bool isRead = item['isRead'] ?? false;
+            return Card(
+              color: isRead ? Colors.white : Colors.blue.shade50,
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(
+                leading: Icon(
+                  isRead ? Icons.notifications_none : Icons.notifications_active,
+                  color: isRead ? Colors.grey : Colors.blue,
                 ),
-              ),
-              subtitle: Text(noti.message),
-              trailing: noti.isRead
-                  ? null
-                  : IconButton(
-                icon: const Icon(Icons.check_circle_outline, color: Colors.blue),
-                onPressed: () => _markAsRead(noti.id, index),
+                title: Text(
+                  item['title'] ?? 'Thông báo',
+                  style: TextStyle(
+                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(item['message'] ?? ''),
+                trailing: !isRead
+                    ? IconButton(
+                  icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                  onPressed: () => _markAsRead(item['_id']),
+                )
+                    : null,
               ),
             );
           },
