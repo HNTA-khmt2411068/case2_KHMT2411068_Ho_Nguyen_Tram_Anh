@@ -98,9 +98,9 @@ class _TaskEditScreenState extends State<TaskEditScreen> {
     setState(() => _isSaving = true);
     try {
       final taskId = _readField('id').toString();
-      final response = await _apiClient.put(
+      final response = await ApiClient.put(
         '/tasks/$taskId',
-        body: {
+        {
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
           'priority': _priority,
