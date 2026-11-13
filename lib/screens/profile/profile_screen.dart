@@ -51,9 +51,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
     try {
       final res = await AuthService.getMe(widget.token);
-      if (res['_id'] != null || res['id'] != null) {
-        _nameController.text = res['fullName'] ?? '';
-        _email = res['email'] ?? '';
+      final userData = res['user'] is Map<String, dynamic>
+          ? res['user'] as Map<String, dynamic>
+          : (res['data'] is Map<String, dynamic>
+          ? res['data'] as Map<String, dynamic>
+          : res);
+
+      if (userData['_id'] != null || userData['id'] != null || userData['email'] != null) {
+        _nameController.text = userData['fullName'] ?? '';
+        _email = userData['email'] ?? '';
       }
 
       final results = await Future.wait([
@@ -124,7 +130,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _logout() {
+  void _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
     ApiClient.token = null;
     Navigator.pushAndRemoveUntil(
       context,

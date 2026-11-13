@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const assignmentRoutes = require('./routes/assignmentRoutes');
 const taskShareRoutes = require('./routes/taskShareRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/tasks', assignmentRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/tasks/:id/shares', taskShareRoutes);
 app.use('/api/notifications', notificationRoutes);

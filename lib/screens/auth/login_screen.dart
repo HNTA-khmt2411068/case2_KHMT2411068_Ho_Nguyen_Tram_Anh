@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../tasks/task_list_screen.dart';
 import 'register_screen.dart';
-import '../tasks/task_list_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: const Key('LoginScreen'));
@@ -29,15 +29,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final res = await AuthService.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    try {
+      final res = await AuthService.login(
+        _emailController.text.trim().toLowerCase(),
+        _passwordController.text,
+      );
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
 
-    if (mounted) {
       if (res['token'] != null) {
+        ApiClient.token = res['token'];
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đăng nhập thành công!')),
         );
@@ -53,6 +55,12 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(res['message'] ?? 'Đăng nhập thất bại!')),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi đăng nhập: $e')),
+      );
     }
   }
 

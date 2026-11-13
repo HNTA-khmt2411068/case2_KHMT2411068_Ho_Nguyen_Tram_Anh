@@ -7,7 +7,7 @@ const connectDB = async () => {
       'mongodb+srv://hntanhkhmt2411068_db_user:20052006@hnta-khmt2411068.le5mxxp.mongodb.net/task_manager?retryWrites=true&w=majority';
 
     const conn = await mongoose.connect(mongoURI);
-    console.log(`🍃 MongoDB Atlas đã kết nối thành công: ${conn.connection.host}`);
+    console.log('MongoDB Atlas đã kết nối thành công!');
 
     const users = await User.find({});
     let updatedCount = 0;

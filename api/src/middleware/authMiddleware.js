@@ -11,7 +11,14 @@ module.exports = (req, res, next) => {
     const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_123';
     const decoded = jwt.verify(token, secret);
 
-    req.user = decoded;
+    const uid = decoded.id || decoded.userId || decoded._id;
+    req.user = {
+      ...decoded,
+      id: uid,
+      userId: uid,
+      _id: uid,
+    };
+
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn!' });

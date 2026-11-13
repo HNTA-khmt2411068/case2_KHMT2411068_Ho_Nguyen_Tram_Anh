@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 class ApiClient {
   static String? token;
   static String baseUrl = 'http://10.0.2.2:5000/api';
+  static const Duration _timeout = Duration(seconds: 10);
 
   static Map<String, String> get _headers => {
     'Content-Type': 'application/json',
@@ -13,29 +14,25 @@ class ApiClient {
 
   static Future<http.Response> get(String endpoint) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    return await http.get(url, headers: _headers);
+    return await http.get(url, headers: _headers).timeout(_timeout);
   }
 
   static Future<http.Response> post(String endpoint, dynamic body) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    return await http.post(
-      url,
-      headers: _headers,
-      body: jsonEncode(body),
-    );
+    return await http
+        .post(url, headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
   }
 
   static Future<http.Response> put(String endpoint, dynamic body) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    return await http.put(
-      url,
-      headers: _headers,
-      body: jsonEncode(body),
-    );
+    return await http
+        .put(url, headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
   }
 
   static Future<http.Response> delete(String endpoint) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(url, headers: _headers);
+    return await http.delete(url, headers: _headers).timeout(_timeout);
   }
 }
