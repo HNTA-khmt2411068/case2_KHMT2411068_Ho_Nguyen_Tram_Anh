@@ -11,6 +11,15 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ userId: req.user.id, isRead: false });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
 exports.markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany({ userId: req.user.id, isRead: false }, { isRead: true });
