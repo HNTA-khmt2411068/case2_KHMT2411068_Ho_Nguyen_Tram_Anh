@@ -26,7 +26,7 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
   String? _primaryUserId;
   bool _isLoading = true;
 
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   @override
   void initState() {
@@ -58,7 +58,12 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
         }
         if (taskData['primaryAssigneeId'] != null) {
           final primary = taskData['primaryAssigneeId'];
-          currentPrimary = primary is Map ? (primary['_id'] ?? primary['id']).toString() : primary.toString();
+          final parsedPrimary = primary is Map
+              ? (primary['_id'] ?? primary['id']).toString()
+              : primary.toString();
+          if (currentAssignees.contains(parsedPrimary)) {
+            currentPrimary = parsedPrimary;
+          }
         }
       }
     } catch (e) {
@@ -69,25 +74,23 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
       setState(() {
         _users = users;
         _selectedUserIds = currentAssignees;
-        _primaryUserId = currentPrimary ?? (currentAssignees.isNotEmpty ? currentAssignees.first : null);
+        _primaryUserId = currentPrimary ??
+            (currentAssignees.isNotEmpty ? currentAssignees.first : null);
         _isLoading = false;
       });
     }
   }
 
   void _submitAssignment() async {
-    if (_selectedUserIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ít nhất một người phụ trách!')),
-      );
-      return;
-    }
+    final String primaryId = _selectedUserIds.isEmpty
+        ? ''
+        : (_primaryUserId ?? _selectedUserIds.first);
 
     final res = await TaskService.assignTask(
       widget.token,
       widget.taskId,
       assigneeIds: _selectedUserIds,
-      primaryAssigneeId: _primaryUserId ?? _selectedUserIds.first,
+      primaryAssigneeId: primaryId,
     );
 
     if (mounted) {
@@ -115,32 +118,48 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
           ),
           Expanded(
             child: _users.isEmpty
-                ? const Center(child: Text('Chưa có thành viên nào trong hệ thống!'))
+                ? const Center(
+                child: Text('Chưa có thành viên nào trong hệ thống!'))
                 : ListView.builder(
               itemCount: _users.length,
               itemBuilder: (context, index) {
                 final user = _users[index];
-                final userId = (user['_id'] ?? user['id']).toString();
-                final isSelected = _selectedUserIds.contains(userId);
-                final isPrimary = _primaryUserId == userId;
+                final userId =
+                (user['_id'] ?? user['id']).toString();
+                final isSelected =
+                _selectedUserIds.contains(userId);
+                final isPrimary =
+                    isSelected && (_primaryUserId == userId);
 
                 return CheckboxListTile(
-                  title: Text(user['fullName'] ?? user['email'] ?? ''),
+                  title: Text(
+                      user['fullName'] ?? user['email'] ?? ''),
                   subtitle: Text(
-                    isPrimary ? 'Phụ trách chính ⭐' : (user['email'] ?? ''),
+                    isPrimary
+                        ? 'Phụ trách chính ⭐'
+                        : (user['email'] ?? ''),
                     style: TextStyle(
-                      color: isPrimary ? Colors.amber[800] : Colors.grey[700],
-                      fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
+                      color: isPrimary
+                          ? Colors.amber[800]
+                          : Colors.grey[700],
+                      fontWeight: isPrimary
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                   value: isSelected,
                   secondary: isSelected
                       ? IconButton(
                     icon: Icon(
-                      isPrimary ? Icons.star : Icons.star_border,
-                      color: isPrimary ? Colors.amber : Colors.grey,
+                      isPrimary
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: isPrimary
+                          ? Colors.amber
+                          : Colors.grey,
                     ),
-                    tooltip: 'Đặt làm người phụ trách chính',
+                    tooltip:
+                    'Đặt làm người phụ trách chính',
                     onPressed: () {
                       setState(() => _primaryUserId = userId);
                     },
@@ -152,11 +171,16 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
                         if (!_selectedUserIds.contains(userId)) {
                           _selectedUserIds.add(userId);
                         }
-                        if (_primaryUserId == null) _primaryUserId = userId;
+                        if (_primaryUserId == null) {
+                          _primaryUserId = userId;
+                        }
                       } else {
                         _selectedUserIds.remove(userId);
                         if (_primaryUserId == userId) {
-                          _primaryUserId = _selectedUserIds.isNotEmpty ? _selectedUserIds.first : null;
+                          _primaryUserId =
+                          _selectedUserIds.isNotEmpty
+                              ? _selectedUserIds.first
+                              : null;
                         }
                       }
                     });
@@ -169,7 +193,8 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
               onPressed: _submitAssignment,
-              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50)),
               child: const Text('Xác nhận giao việc'),
             ),
           ),
