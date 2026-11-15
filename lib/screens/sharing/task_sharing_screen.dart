@@ -92,16 +92,20 @@ class _TaskSharingScreenState extends State<TaskSharingScreen> {
             const Text('Chọn người nhận chia sẻ:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               hint: const Text('Chọn thành viên'),
-              initialValue: _selectedUserId,
+              value: _selectedUserId,
               items: _users.map((u) {
                 return DropdownMenuItem<String>(
                   value: u['_id'],
-                  child: Text('${u['fullName']} (${u['email']})'),
+                  child: Text(
+                    '${u['fullName']} (${u['email']})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
               onChanged: (val) => setState(() => _selectedUserId = val),
