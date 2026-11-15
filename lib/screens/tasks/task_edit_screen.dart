@@ -14,8 +14,6 @@ class TaskEditScreen extends StatefulWidget {
 
 class _TaskEditScreenState extends State<TaskEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ApiClient _apiClient = ApiClient();
-
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late String _priority;

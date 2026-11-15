@@ -4,7 +4,7 @@ import '../../services/task_service.dart';
 
 class TaskCreateScreen extends StatefulWidget {
   final String token;
-  const TaskCreateScreen({Key? key, required this.token}) : super(key: key);
+  const TaskCreateScreen({super.key, required this.token});
 
   @override
   State<TaskCreateScreen> createState() => _TaskCreateScreenState();
@@ -114,7 +114,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _priority,
+                initialValue: _priority,
                 decoration: const InputDecoration(
                   labelText: 'Mức độ ưu tiên',
                   border: OutlineInputBorder(),
@@ -128,7 +128,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _status,
+                initialValue: _status,
                 decoration: const InputDecoration(
                   labelText: 'Trạng thái ban đầu',
                   border: OutlineInputBorder(),

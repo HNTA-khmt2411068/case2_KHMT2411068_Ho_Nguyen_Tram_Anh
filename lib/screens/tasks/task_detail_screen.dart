@@ -14,10 +14,10 @@ class TaskDetailScreen extends StatefulWidget {
   final Task task;
 
   const TaskDetailScreen({
-    Key? key,
+    super.key,
     required this.token,
     required this.task,
-  }) : super(key: key);
+  });
 
   @override
   State<TaskDetailScreen> createState() => _TaskDetailScreenState();

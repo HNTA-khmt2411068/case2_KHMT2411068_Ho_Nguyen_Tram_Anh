@@ -51,11 +51,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
     try {
       final res = await AuthService.getMe(widget.token);
-<<<<<<< HEAD
-      if (res['_id'] != null || res['id'] != null) {
-        _nameController.text = res['fullName'] ?? '';
-        _email = res['email'] ?? '';
-=======
       final userData = res['user'] is Map<String, dynamic>
           ? res['user'] as Map<String, dynamic>
           : (res['data'] is Map<String, dynamic>
@@ -65,7 +60,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (userData['_id'] != null || userData['id'] != null || userData['email'] != null) {
         _nameController.text = userData['fullName'] ?? '';
         _email = userData['email'] ?? '';
->>>>>>> main
       }
 
       final results = await Future.wait([
@@ -136,14 +130,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-<<<<<<< HEAD
-  void _logout() {
-    ApiClient.token = null;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-=======
   void _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -161,7 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
->>>>>>> main
     );
 
     if (confirm != true || !mounted) return;

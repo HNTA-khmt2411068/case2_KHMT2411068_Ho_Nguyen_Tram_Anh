@@ -11,7 +11,7 @@ import 'task_detail_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   final String token;
-  const TaskListScreen({Key? key, required this.token}) : super(key: key);
+  const TaskListScreen({super.key, required this.token});
 
   @override
   State<TaskListScreen> createState() => _TaskListScreenState();

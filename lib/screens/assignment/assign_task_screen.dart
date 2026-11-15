@@ -11,11 +11,11 @@ class AssignTaskScreen extends StatefulWidget {
   final String taskTitle;
 
   const AssignTaskScreen({
-    Key? key,
+    super.key,
     required this.token,
     required this.taskId,
     required this.taskTitle,
-  }) : super(key: key);
+  });
 
   @override
   State<AssignTaskScreen> createState() => _AssignTaskScreenState();

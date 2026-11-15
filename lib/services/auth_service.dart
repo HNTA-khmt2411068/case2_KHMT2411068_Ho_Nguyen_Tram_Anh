@@ -83,7 +83,7 @@ class AuthService {
         },
         body: jsonEncode({
           'fullName': fullName,
-          if (avatarUrl != null) 'avatarUrl': avatarUrl,
+          'avatarUrl': ?avatarUrl,
         }),
       )
           .timeout(const Duration(seconds: 10));

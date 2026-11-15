@@ -9,11 +9,11 @@ class TaskSharingScreen extends StatefulWidget {
   final String taskTitle;
 
   const TaskSharingScreen({
-    Key? key,
+    super.key,
     required this.token,
     required this.taskId,
     required this.taskTitle,
-  }) : super(key: key);
+  });
 
   @override
   State<TaskSharingScreen> createState() => _TaskSharingScreenState();
@@ -98,7 +98,7 @@ class _TaskSharingScreenState extends State<TaskSharingScreen> {
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               hint: const Text('Chọn thành viên'),
-              value: _selectedUserId,
+              initialValue: _selectedUserId,
               items: _users.map((u) {
                 return DropdownMenuItem<String>(
                   value: u['_id'],
