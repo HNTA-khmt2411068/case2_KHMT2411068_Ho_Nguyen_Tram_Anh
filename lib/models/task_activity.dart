@@ -1,35 +1,46 @@
 class TaskActivity {
   final String id;
   final String taskId;
+  final String userId;
   final String userName;
   final String action;
-  final String details;
-  final DateTime createdAt;
+  final Map<String, dynamic> details;
+  final DateTime? createdAt;
 
   TaskActivity({
     required this.id,
     required this.taskId,
-    required this.userName,
+    required this.userId,
+    this.userName = '',
     required this.action,
-    required this.details,
-    required this.createdAt,
+    this.details = const {},
+    this.createdAt,
   });
 
   factory TaskActivity.fromJson(Map<String, dynamic> json) {
-    String uName = 'Người dùng';
-    if (json['userId'] != null && json['userId'] is Map) {
-      uName = json['userId']['fullName'] ?? json['userId']['email'] ?? 'Người dùng';
+    final userObj = json['userId'];
+    String parsedUserId = '';
+    String parsedUserName = '';
+
+    if (userObj is Map<String, dynamic>) {
+      parsedUserId = (userObj['_id'] ?? userObj['id'] ?? '').toString();
+      parsedUserName = (userObj['fullName'] ?? '').toString();
+    } else if (userObj != null) {
+      parsedUserId = userObj.toString();
     }
 
     return TaskActivity(
-      id: json['_id'] ?? '',
-      taskId: json['taskId'] ?? '',
-      userName: uName,
-      action: json['action'] ?? '',
-      details: json['details'] ?? '',
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      taskId: (json['taskId'] ?? '').toString(),
+      userId: parsedUserId,
+      userName: parsedUserName,
+      action: (json['action'] ?? '').toString(),
+      details: json['details'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['details'])
+          : {},
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
     );
   }
 }

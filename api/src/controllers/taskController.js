@@ -1,249 +1,207 @@
-const User = require('../models/User');
 const Task = require('../models/Task');
-const TaskShare = require('../models/TaskShare');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
 const TaskActivity = require('../models/TaskActivity');
-const { logActivity } = require('../services/activityService');
+const emailService = require('../services/emailService');
 
-const getTasks = async (req, res) => {
+exports.getTasks = async (req, res) => {
   try {
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
-    const shares = await TaskShare.find({ userId: currentUserId });
-    const sharedTaskIds = shares.map(s => s.taskId);
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Không tìm thấy thông tin xác thực!' });
+    }
 
     const tasks = await Task.find({
       $or: [
-        { createdBy: currentUserId },
-        { assigneeIds: currentUserId },
-        { _id: { $in: sharedTaskIds } }
+        { createdBy: req.user.id },
+        { assigneeIds: req.user.id }
       ]
-    }).sort({ createdAt: -1 });
+    }).populate('createdBy', 'fullName email').sort({ createdAt: -1 });
 
-    return res.status(200).json(tasks);
+    res.json(tasks || []);
   } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    console.error('Lỗi getTasks:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
-const createTask = async (req, res) => {
+exports.getTaskById = async (req, res) => {
   try {
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
-    const taskData = { ...req.body, createdBy: currentUserId };
+    const task = await Task.findById(req.params.id)
+      .populate('createdBy', 'fullName email')
+      .populate('assigneeIds', 'fullName email');
+    if (!task) {
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
+    }
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
 
-    const task = await Task.create(taskData);
+exports.createTask = async (req, res) => {
+  try {
+    const { title, description, startDate, dueDate, priority, status } = req.body;
 
-    await logActivity({
+    if (!title) {
+      return res.status(400).json({ message: 'Vui lòng nhập tên công việc!' });
+    }
+
+    const task = new Task({
+      title,
+      description: description || '',
+      startDate,
+      dueDate,
+      priority: priority || 'medium',
+      status: status || 'todo',
+      createdBy: req.user.id,
+      assigneeIds: [req.user.id],
+      primaryAssigneeId: req.user.id
+    });
+
+    await task.save();
+
+    await TaskActivity.create({
       taskId: task._id,
-      userId: currentUserId,
-      action: 'Tạo công việc',
-      details: `Đã tạo công việc "${task.title}"`,
+      userId: req.user.id,
+      action: `Đã tạo công việc: "${task.title}"`
+    });
+
+    res.status(201).json({ message: 'Tạo công việc thành công!', task });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+exports.updateTask = async (req, res) => {
+  try {
+    const task = await Task.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
+    if (!task) {
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
+    }
+
+    await TaskActivity.create({
+      taskId: task._id,
+      userId: req.user.id,
+      action: `Đã cập nhật chi tiết công việc: "${task.title}"`
+    });
+
+    res.json({ message: 'Cập nhật công việc thành công!', task });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+exports.deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findByIdAndDelete(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
+    }
+    res.json({ message: 'Đã xóa công việc thành công!' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+exports.updateTaskStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
+    }
+    task.status = status;
+    await task.save();
+
+    const statusText = status === 'completed' ? 'Đã hoàn thành' : (status === 'in_progress' ? 'Đang thực hiện' : 'Chưa thực hiện');
+
+    await TaskActivity.create({
+      taskId: task._id,
+      userId: req.user.id,
+      action: `Đã đổi trạng thái công việc sang "${statusText}"`
     });
 
     await Notification.create({
-      userId: currentUserId,
+      userId: req.user.id,
       taskId: task._id,
-      type: 'task_created',
-      title: 'Tạo công việc thành công',
-      message: `Bạn đã tạo thành công công việc "${task.title}"`,
-      isRead: false
+      type: 'STATUS_UPDATED',
+      title: 'Cập nhật trạng thái',
+      message: `Bạn đã chuyển trạng thái công việc "${task.title}" sang "${statusText}".`,
     });
 
-    if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) {
-      for (const assigneeId of task.assigneeIds) {
-        const aIdStr = assigneeId.toString();
-        if (aIdStr && aIdStr !== currentUserId) {
+    res.json({ message: 'Cập nhật trạng thái thành công!', task });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+exports.assignTask = async (req, res) => {
+  try {
+    const { assigneeIds, primaryAssigneeId } = req.body;
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
+    }
+
+    if (assigneeIds) task.assigneeIds = assigneeIds;
+    if (primaryAssigneeId) task.primaryAssigneeId = primaryAssigneeId;
+
+    await task.save();
+
+    const count = assigneeIds ? assigneeIds.length : 0;
+
+    await TaskActivity.create({
+      taskId: task._id,
+      userId: req.user.id,
+      action: `Đã giao công việc cho ${count} thành viên`
+    });
+
+    await Notification.create({
+      userId: req.user.id,
+      taskId: task._id,
+      type: 'ASSIGNMENT_SENT',
+      title: 'Giao việc thành công',
+      message: `Bạn đã phân công công việc "${task.title}" cho ${count} thành viên.`,
+    });
+
+    if (assigneeIds && assigneeIds.length > 0) {
+      const users = await User.find({ _id: { $in: assigneeIds } });
+      for (const user of users) {
+        if (user._id.toString() !== req.user.id) {
           await Notification.create({
-            userId: aIdStr,
+            userId: user._id,
             taskId: task._id,
-            type: 'task_assigned',
+            type: 'ASSIGNED',
             title: 'Công việc mới được giao',
-            message: `Bạn vừa được giao công việc "${task.title}"`,
-            isRead: false
+            message: `Bạn đã được giao công việc: "${task.title}"`,
           });
+
+          try {
+            await emailService.sendTaskEmail(
+              user.email,
+              'Thông báo: Bạn có công việc mới được giao',
+              `Xin chào ${user.fullName},\n\nBạn vừa được phân công công việc: "${task.title}".\nHãy kiểm tra ứng dụng TaskManager để xem chi tiết!`
+            );
+          } catch (emailErr) {
+            console.error('Bỏ qua lỗi email service:', emailErr.message);
+          }
         }
       }
     }
 
-    return res.status(201).json(task);
+    res.json({ message: 'Phân công công việc thành công!', task });
   } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    console.error('Lỗi assignTask:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
-const getTaskById = async (req, res) => {
+exports.getTaskActivities = async (req, res) => {
   try {
-    const { id } = req.params;
-    const task = await Task.findById(id);
-    if (!task) {
-      return res.status(404).json({ message: 'Không tìm thấy công việc' });
-    }
-    return res.status(200).json(task);
+    const activities = await TaskActivity.find({ taskId: req.params.id }).sort({ createdAt: -1 });
+    res.json(activities);
   } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
-};
-
-const updateTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
-
-    const task = await Task.findByIdAndUpdate(id, req.body, { new: true });
-    if (!task) {
-      return res.status(404).json({ message: 'Không tìm thấy công việc' });
-    }
-
-    await logActivity({
-      taskId: task._id,
-      userId: currentUserId,
-      action: req.body.status ? `Đổi trạng thái sang ${req.body.status}` : 'Cập nhật thông tin',
-      details: `Đã cập nhật công việc "${task.title}"`,
-    });
-
-    await Notification.create({
-      userId: currentUserId,
-      taskId: task._id,
-      type: 'task_updated_sender',
-      title: 'Đã cập nhật công việc',
-      message: `Bạn đã cập nhật thông tin công việc "${task.title}"`,
-      isRead: false
-    });
-
-    const shares = await TaskShare.find({ taskId: id });
-    const sharedUserIds = shares.map(s => s.userId.toString());
-    const assigneeIds = (task.assigneeIds || []).map(a => a.toString());
-    const creatorId = task.createdBy ? task.createdBy.toString() : '';
-
-    const relatedUserIds = [...new Set([...sharedUserIds, ...assigneeIds, creatorId])]
-      .filter(uId => uId && uId !== currentUserId);
-
-    for (const rId of relatedUserIds) {
-      await Notification.create({
-        userId: rId,
-        taskId: task._id,
-        type: 'task_updated',
-        title: 'Công việc đã được cập nhật',
-        message: `Công việc "${task.title}" vừa được cập nhật thông tin mới`,
-        isRead: false
-      });
-    }
-
-    return res.status(200).json(task);
-  } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-const deleteTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
-
-    const task = await Task.findById(id);
-    if (!task) {
-      return res.status(404).json({ message: 'Không tìm thấy công việc' });
-    }
-
-    const taskTitle = task.title;
-
-    const shares = await TaskShare.find({ taskId: id });
-    const sharedUserIds = shares.map(s => s.userId.toString());
-    const assigneeIds = (task.assigneeIds || []).map(a => a.toString());
-    const creatorId = task.createdBy ? task.createdBy.toString() : '';
-
-    await Notification.create({
-      userId: currentUserId,
-      taskId: null,
-      type: 'task_deleted_sender',
-      title: 'Đã xóa công việc',
-      message: `Bạn đã xóa công việc "${taskTitle}"`,
-      isRead: false
-    });
-
-    const relatedUserIds = [...new Set([...sharedUserIds, ...assigneeIds, creatorId])]
-      .filter(uId => uId && uId !== currentUserId);
-
-    for (const rId of relatedUserIds) {
-      await Notification.create({
-        userId: rId,
-        taskId: null,
-        type: 'task_deleted',
-        title: 'Công việc đã bị xóa',
-        message: `Công việc "${taskTitle}" liên quan đến bạn đã bị xóa`,
-        isRead: false
-      });
-    }
-
-    await TaskShare.deleteMany({ taskId: id });
-    await TaskActivity.deleteMany({ taskId: id });
-    await Task.findByIdAndDelete(id);
-
-    return res.status(200).json({ message: 'Xóa công việc thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-const getTaskActivities = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const activities = await TaskActivity.find({ taskId: id })
-      .populate('userId', 'fullName email')
-      .sort({ createdAt: -1 });
-    return res.status(200).json(activities);
-  } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-const assignTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { assigneeIds = [] } = req.body;
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
-
-    const task = await Task.findByIdAndUpdate(id, { assigneeIds }, { new: true });
-    if (!task) {
-      return res.status(404).json({ message: 'Không tìm thấy công việc' });
-    }
-
-    const assignedUsers = await User.find({ _id: { $in: assigneeIds } });
-    const assignedNames = assignedUsers.map(u => u.fullName).join(', ');
-
-    await logActivity({
-      taskId: task._id,
-      userId: currentUserId,
-      action: 'Giao việc',
-      details: assignedNames ? `Đã giao việc cho: ${assignedNames}` : 'Đã hủy phân công công việc',
-    });
-
-    if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
-      for (const assigneeId of assigneeIds) {
-        if (assigneeId.toString() !== currentUserId) {
-          await Notification.create({
-            userId: assigneeId,
-            taskId: task._id,
-            type: 'task_assigned',
-            title: 'Bạn được giao công việc mới',
-            message: `Bạn vừa được giao công việc "${task.title}"`,
-            isRead: false
-          });
-        }
-      }
-    }
-
-    return res.status(200).json(task);
-  } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
-
-module.exports = {
-  getTasks,
-  createTask,
-  getTaskById,
-  updateTask,
-  deleteTask,
-  getTaskActivities,
-  assignTask,
 };

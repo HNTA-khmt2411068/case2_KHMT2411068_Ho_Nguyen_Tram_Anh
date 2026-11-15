@@ -1,27 +1,28 @@
-class Notification {
+class NotificationModel {
   final String id;
   final String title;
   final String message;
+  final String type;
   final bool isRead;
   final DateTime createdAt;
 
-  Notification({
+  NotificationModel({
     required this.id,
     required this.title,
     required this.message,
+    required this.type,
     required this.isRead,
     required this.createdAt,
   });
 
-  factory Notification.fromJson(Map<String, dynamic> json) {
-    return Notification(
-      id: (json['_id'] ?? json['id'] ?? '').toString(),
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['_id'] ?? '',
       title: json['title'] ?? '',
       message: json['message'] ?? '',
+      type: json['type'] ?? '',
       isRead: json['isRead'] ?? false,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
     );
   }
 }

@@ -2,176 +2,118 @@ const TaskShare = require('../models/TaskShare');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { sendEmail } = require('../services/emailService');
-const { logActivity } = require('../services/activityService');
+const TaskActivity = require('../models/TaskActivity');
+const emailService = require('../services/emailService');
 
-const shareTask = async (req, res) => {
+exports.shareTask = async (req, res) => {
   try {
-    const { taskId } = req.params;
-    const { userId, permission = 'viewer' } = req.body;
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
+    const { userId, permission } = req.body;
+    const taskId = req.params.id;
 
     const task = await Task.findById(taskId);
     if (!task) {
-      return res.status(404).json({ message: 'Không tìm thấy công việc' });
+      return res.status(404).json({ message: 'Không tìm thấy công việc!' });
     }
 
-    let share = await TaskShare.findOne({ taskId, userId });
-    if (share) {
-      share.permission = permission;
-      await share.save();
-    } else {
-      share = await TaskShare.create({
-        taskId,
-        userId,
-        permission,
-        sharedBy: currentUserId,
-      });
-    }
+    const share = await TaskShare.findOneAndUpdate(
+      { taskId, userId },
+      { permission: permission || 'viewer', sharedBy: req.user.id },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    const permText = permission === 'editor' ? 'Chỉnh sửa' : 'Chỉ xem';
+
+    await TaskActivity.create({
+      taskId: task._id,
+      userId: req.user.id,
+      action: `Đã chia sẻ công việc (Quyền: ${permText})`
+    });
+
+    await Notification.create({
+      userId: req.user.id,
+      taskId: task._id,
+      type: 'SHARE_SENT',
+      title: 'Chia sẻ công việc thành công',
+      message: `Bạn đã chia sẻ công việc "${task.title}" (Quyền: ${permText}) thành công.`,
+    });
 
     const recipient = await User.findById(userId);
-    if (recipient) {
-      await logActivity({
-        taskId,
-        userId: currentUserId,
-        action: 'Chia sẻ công việc',
-        details: `Đã chia sẻ công việc với: ${recipient.fullName || recipient.email}`,
-      });
-
+    if (recipient && recipient._id.toString() !== req.user.id) {
       await Notification.create({
         userId: recipient._id,
         taskId: task._id,
-        type: 'task_shared',
-        title: 'Công việc mới được chia sẻ',
-        message: `Bạn vừa được chia sẻ công việc "${task.title}" với quyền ${permission.toUpperCase()}`,
-        isRead: false,
+        type: 'SHARED',
+        title: 'Công việc được chia sẻ',
+        message: `Bạn vừa được chia sẻ công việc: "${task.title}" (Quyền: ${permText})`,
       });
 
-      if (currentUserId) {
-        await Notification.create({
-          userId: currentUserId,
-          taskId: task._id,
-          type: 'task_shared_sender',
-          title: 'Đã chia sẻ công việc',
-          message: `Bạn đã chia sẻ công việc "${task.title}" cho ${recipient.fullName || recipient.email} với quyền ${permission.toUpperCase()}`,
-          isRead: false,
-        });
-      }
-
-      if (recipient.email) {
-        sendEmail({
-          recipientEmail: recipient.email,
-          eventType: 'task_shared',
-          taskId: task._id,
-          subject: `[Task Manager] Bạn được chia sẻ công việc: ${task.title}`,
-          text: `Xin chào ${recipient.fullName || 'bạn'},\n\nCông việc "${task.title}" vừa được chia sẻ với bạn (Quyền: ${permission.toUpperCase()}).\n\nVui lòng đăng nhập ứng dụng để xem chi tiết.`,
-        });
+      try {
+        await emailService.sendTaskEmail(
+          recipient.email,
+          'Thông báo: Công việc mới được chia sẻ với bạn',
+          `Xin chào ${recipient.fullName},\n\nCông việc "${task.title}" đã được chia sẻ với bạn (Quyền: ${permText}).`
+        );
+      } catch (emailErr) {
+        console.error('Bỏ qua lỗi gửi email:', emailErr.message);
       }
     }
 
-    return res.status(200).json({ message: 'Chia sẻ công việc thành công', share });
+    res.json({ message: 'Chia sẻ công việc thành công!', share });
   } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
-const getShares = async (req, res) => {
+exports.getTaskShares = async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const taskId = req.params.id;
     const shares = await TaskShare.find({ taskId }).populate('userId', 'fullName email');
-    return res.status(200).json(shares);
+    res.json(shares);
   } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ' });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
-const revokeShare = async (req, res) => {
+exports.revokeShare = async (req, res) => {
   try {
-    const shareId = req.params.shareId || req.params.id;
-    const currentUserId = (req.user?.id || req.user?._id || req.user?.userId || req.user || '').toString();
+    const { shareId } = req.params;
 
-    const share = await TaskShare.findById(shareId).populate('taskId').populate('userId');
-
+    const share = await TaskShare.findById(shareId);
     if (!share) {
-      return res.status(404).json({ message: 'Không tìm thấy bản ghi chia sẻ' });
+      return res.status(404).json({ message: 'Không tìm thấy quyền chia sẻ!' });
     }
 
-    let recipientId = '';
-    let recipientName = 'người dùng';
-    let recipientEmail = '';
+    const task = await Task.findById(share.taskId);
+    const taskTitle = task ? task.title : 'công việc';
 
-    if (share.userId) {
-      if (typeof share.userId === 'object' && share.userId._id) {
-        recipientId = share.userId._id.toString();
-        recipientName = share.userId.fullName || share.userId.email || 'người dùng';
-        recipientEmail = share.userId.email || '';
-      } else {
-        recipientId = share.userId.toString();
-        const recipientUser = await User.findById(share.userId);
-        if (recipientUser) {
-          recipientName = recipientUser.fullName || recipientUser.email || 'người dùng';
-          recipientEmail = recipientUser.email || '';
-        }
-      }
-    }
-
-    let taskIdVal = share.taskId?._id || share.taskId;
-    let taskTitle = 'Công việc';
-    if (typeof share.taskId === 'object' && share.taskId.title) {
-      taskTitle = share.taskId.title;
-    } else if (share.taskId) {
-      const t = await Task.findById(share.taskId);
-      if (t) taskTitle = t.title;
-    }
-
-    await logActivity({
-      taskId: taskIdVal,
-      userId: currentUserId,
-      action: 'Thu hồi chia sẻ',
-      details: `Đã thu hồi quyền chia sẻ của: ${recipientName}`,
+    await Notification.create({
+      userId: req.user.id,
+      taskId: share.taskId,
+      type: 'REVOKE_SENT',
+      title: 'Thu hồi quyền thành công',
+      message: `Bạn đã thu hồi quyền truy cập công việc "${taskTitle}" thành công.`,
     });
 
-    if (recipientId) {
+    if (share.userId && share.userId.toString() !== req.user.id) {
       await Notification.create({
-        userId: recipientId,
-        taskId: taskIdVal,
-        type: 'task_share_revoked',
-        title: 'Quyền chia sẻ đã bị thu hồi',
-        message: `Quyền truy cập công việc "${taskTitle}" của bạn đã bị thu hồi`,
-        isRead: false,
-      });
-
-      if (recipientEmail) {
-        sendEmail({
-          recipientEmail: recipientEmail,
-          eventType: 'task_share_revoked',
-          taskId: taskIdVal,
-          subject: `[Task Manager] Thu hồi quyền chia sẻ: ${taskTitle}`,
-          text: `Xin chào ${recipientName},\n\nQuyền truy cập công việc "${taskTitle}" của bạn đã bị thu hồi.`,
-        });
-      }
-    }
-
-    if (currentUserId) {
-      await Notification.create({
-        userId: currentUserId,
-        taskId: taskIdVal,
-        type: 'task_share_revoked_sender',
-        title: 'Đã thu hồi chia sẻ',
-        message: `Bạn đã thu hồi quyền chia sẻ công việc "${taskTitle}" của ${recipientName}`,
-        isRead: false,
+        userId: share.userId,
+        taskId: share.taskId,
+        type: 'SHARE_REVOKED',
+        title: 'Thu hồi quyền chia sẻ',
+        message: `Quyền truy cập công việc "${taskTitle}" của bạn đã bị thu hồi.`,
       });
     }
+
+    await TaskActivity.create({
+      taskId: share.taskId,
+      userId: req.user.id,
+      action: `Đã thu hồi quyền chia sẻ công việc "${taskTitle}"`,
+    });
 
     await TaskShare.findByIdAndDelete(shareId);
-    return res.status(200).json({ message: 'Đã thu hồi quyền chia sẻ thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
-  }
-};
 
-module.exports = {
-  shareTask,
-  getShares,
-  revokeShare,
+    res.json({ message: 'Đã thu hồi quyền chia sẻ thành công!' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
 };

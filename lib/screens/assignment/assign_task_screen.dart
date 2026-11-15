@@ -1,12 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../services/api_client.dart';
+import 'package:http/http.dart' as http;
 import '../../services/task_service.dart';
+import '../../services/user_service.dart';
 
 class AssignTaskScreen extends StatefulWidget {
+  final String token;
   final String taskId;
+  final String taskTitle;
 
-  const AssignTaskScreen({super.key, required this.taskId});
+  const AssignTaskScreen({
+    Key? key,
+    required this.token,
+    required this.taskId,
+    required this.taskTitle,
+  }) : super(key: key);
 
   @override
   State<AssignTaskScreen> createState() => _AssignTaskScreenState();
@@ -14,11 +22,11 @@ class AssignTaskScreen extends StatefulWidget {
 
 class _AssignTaskScreenState extends State<AssignTaskScreen> {
   List<dynamic> _users = [];
-  List<dynamic> _filteredUsers = [];
-  final List<String> _selectedUserIds = [];
+  List<String> _selectedUserIds = [];
+  String? _primaryUserId;
   bool _isLoading = true;
-  bool _isSubmitting = false;
-  final TextEditingController _searchController = TextEditingController();
+
+  static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   @override
   void initState() {
@@ -26,207 +34,171 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
     _fetchData();
   }
 
-  Future<void> _fetchData() async {
+  void _fetchData() async {
+    setState(() => _isLoading = true);
+
+    final users = await UserService.getUsers(widget.token);
+
+    List<String> currentAssignees = [];
+    String? currentPrimary;
+
     try {
-      final usersResponse = await ApiClient.get('/users');
-      final taskResponse = await ApiClient.get('/tasks/${widget.taskId}');
-
-      if (usersResponse.statusCode == 200) {
-        final data = jsonDecode(usersResponse.body);
-        final List list = data is List ? data : (data['users'] ?? []);
-        _users = list;
-        _filteredUsers = list;
+      final res = await http.get(
+        Uri.parse('$baseUrl/tasks/${widget.taskId}'),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
+      );
+      if (res.statusCode == 200) {
+        final taskData = jsonDecode(res.body);
+        if (taskData['assigneeIds'] != null) {
+          final List<dynamic> assignees = taskData['assigneeIds'];
+          currentAssignees = assignees.map((e) {
+            if (e is Map) return (e['_id'] ?? e['id']).toString();
+            return e.toString();
+          }).toList();
+        }
+        if (taskData['primaryAssigneeId'] != null) {
+          final primary = taskData['primaryAssigneeId'];
+          final parsedPrimary = primary is Map
+              ? (primary['_id'] ?? primary['id']).toString()
+              : primary.toString();
+          if (currentAssignees.contains(parsedPrimary)) {
+            currentPrimary = parsedPrimary;
+          }
+        }
       }
-
-      if (taskResponse.statusCode == 200) {
-        final taskData = jsonDecode(taskResponse.body);
-        final List existingAssignees = taskData['assigneeIds'] ?? [];
-        _selectedUserIds.clear();
-        _selectedUserIds.addAll(existingAssignees.map((e) => e.toString()));
-      }
-
-      setState(() => _isLoading = false);
     } catch (e) {
-      setState(() => _isLoading = false);
+      print('Lỗi tải chi tiết task: $e');
     }
-  }
 
-  void _filterUsers(String query) {
-    if (query.isEmpty) {
-      setState(() => _filteredUsers = _users);
-    } else {
+    if (mounted) {
       setState(() {
-        _filteredUsers = _users.where((user) {
-          final name = (user['fullName'] ?? '').toString().toLowerCase();
-          final email = (user['email'] ?? '').toString().toLowerCase();
-          final q = query.toLowerCase();
-          return name.contains(q) || email.contains(q);
-        }).toList();
+        _users = users;
+        _selectedUserIds = currentAssignees;
+        _primaryUserId = currentPrimary ??
+            (currentAssignees.isNotEmpty ? currentAssignees.first : null);
+        _isLoading = false;
       });
     }
   }
 
-  Future<void> _submitAssign() async {
-    setState(() => _isSubmitting = true);
+  void _submitAssignment() async {
+    final String primaryId = _selectedUserIds.isEmpty
+        ? ''
+        : (_primaryUserId ?? _selectedUserIds.first);
 
-    try {
-      final success = await TaskService.assignTask(widget.taskId, _selectedUserIds);
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cập nhật phân công việc thành công!')),
-          );
-          Navigator.pop(context, true);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Giao việc thất bại. Vui lòng thử lại!')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Có lỗi xảy ra khi giao việc')),
-        );
-      }
+    final res = await TaskService.assignTask(
+      widget.token,
+      widget.taskId,
+      assigneeIds: _selectedUserIds,
+      primaryAssigneeId: primaryId,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Phân công thành công!')),
+      );
+      Navigator.pop(context, true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Giao việc'),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        titleTextStyle: const TextStyle(
-          color: Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _searchController,
-                onChanged: _filterUsers,
-                decoration: InputDecoration(
-                  hintText: 'Tìm (email/tên)...',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Danh sách người được giao việc:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _filteredUsers.isEmpty
-                    ? const Center(
-                  child: Text(
-                    'Không tìm thấy người dùng phù hợp',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-                    : ListView.builder(
-                  itemCount: _filteredUsers.length,
-                  itemBuilder: (context, index) {
-                    final user = _filteredUsers[index];
-                    final String userId = (user['_id'] ?? user['id'] ?? '').toString();
-                    final String fullName = user['fullName'] ?? 'Người dùng';
-                    final String email = user['email'] ?? '';
-                    final bool isSelected = _selectedUserIds.contains(userId);
+      appBar: AppBar(title: Text('Giao việc: ${widget.taskTitle}')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: Text(
+              'Chọn danh sách thành viên thực hiện:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          Expanded(
+            child: _users.isEmpty
+                ? const Center(
+                child: Text('Chưa có thành viên nào trong hệ thống!'))
+                : ListView.builder(
+              itemCount: _users.length,
+              itemBuilder: (context, index) {
+                final user = _users[index];
+                final userId =
+                (user['_id'] ?? user['id']).toString();
+                final isSelected =
+                _selectedUserIds.contains(userId);
+                final isPrimary =
+                    isSelected && (_primaryUserId == userId);
 
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: isSelected ? Colors.blue.shade300 : Colors.grey.shade200,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      color: isSelected ? Colors.blue.shade50.withOpacity(0.4) : Colors.white,
-                      child: CheckboxListTile(
-                        value: isSelected,
-                        activeColor: Colors.blue.shade700,
-                        onChanged: (bool? checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _selectedUserIds.add(userId);
-                            } else {
-                              _selectedUserIds.remove(userId);
-                            }
-                          });
-                        },
-                        title: Text(
-                          fullName,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                        ),
-                        subtitle: Text(email, style: const TextStyle(fontSize: 13)),
-                        secondary: CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Text(
-                            fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                            style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1976D2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                return CheckboxListTile(
+                  title: Text(
+                      user['fullName'] ?? user['email'] ?? ''),
+                  subtitle: Text(
+                    isPrimary
+                        ? 'Phụ trách chính ⭐'
+                        : (user['email'] ?? ''),
+                    style: TextStyle(
+                      color: isPrimary
+                          ? Colors.amber[800]
+                          : Colors.grey[700],
+                      fontWeight: isPrimary
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
-                  onPressed: _isSubmitting ? null : _submitAssign,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  value: isSelected,
+                  secondary: isSelected
+                      ? IconButton(
+                    icon: Icon(
+                      isPrimary
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: isPrimary
+                          ? Colors.amber
+                          : Colors.grey,
+                    ),
+                    tooltip:
+                    'Đặt làm người phụ trách chính',
+                    onPressed: () {
+                      setState(() => _primaryUserId = userId);
+                    },
                   )
-                      : const Text(
-                    'Xác nhận giao việc',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
+                      : null,
+                  onChanged: (bool? checked) {
+                    setState(() {
+                      if (checked == true) {
+                        if (!_selectedUserIds.contains(userId)) {
+                          _selectedUserIds.add(userId);
+                        }
+                        if (_primaryUserId == null) {
+                          _primaryUserId = userId;
+                        }
+                      } else {
+                        _selectedUserIds.remove(userId);
+                        if (_primaryUserId == userId) {
+                          _primaryUserId =
+                          _selectedUserIds.isNotEmpty
+                              ? _selectedUserIds.first
+                              : null;
+                        }
+                      }
+                    });
+                  },
+                );
+              },
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: _submitAssignment,
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50)),
+              child: const Text('Xác nhận giao việc'),
+            ),
+          ),
+        ],
       ),
     );
   }

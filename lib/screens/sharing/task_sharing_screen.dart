@@ -1,201 +1,156 @@
 import 'package:flutter/material.dart';
-import '../../../models/user.dart';
-import '../../../models/task_share.dart';
-import '../../../services/user_service.dart';
-import '../../../services/task_share_service.dart';
+import '../../models/task_share.dart';
+import '../../services/task_share_service.dart';
+import '../../services/user_service.dart';
 
 class TaskSharingScreen extends StatefulWidget {
+  final String token;
   final String taskId;
+  final String taskTitle;
 
-  const TaskSharingScreen({super.key, required this.taskId});
+  const TaskSharingScreen({
+    Key? key,
+    required this.token,
+    required this.taskId,
+    required this.taskTitle,
+  }) : super(key: key);
 
   @override
   State<TaskSharingScreen> createState() => _TaskSharingScreenState();
 }
 
 class _TaskSharingScreenState extends State<TaskSharingScreen> {
-  final UserService _userService = UserService();
-  final TaskShareService _shareService = TaskShareService();
-
-  List<User> _searchResults = [];
-  List<TaskShare> _currentShares = [];
-  bool _isLoading = false;
+  List<TaskShare> _shares = [];
+  List<dynamic> _users = [];
+  bool _isLoading = true;
+  String? _selectedUserId;
   String _selectedPermission = 'viewer';
 
   @override
   void initState() {
     super.initState();
-    _loadShares();
+    _loadData();
   }
 
-  void _loadShares() async {
-    try {
-      final shares = await _shareService.getShares(widget.taskId);
-      setState(() => _currentShares = shares);
-    } catch (_) {}
+  void _loadData() async {
+    setState(() => _isLoading = true);
+    final shares = await TaskShareService.getTaskShares(widget.token, widget.taskId);
+    final users = await UserService.getUsers(widget.token);
+    if (mounted) {
+      setState(() {
+        _shares = shares;
+        _users = users;
+        _isLoading = false;
+      });
+    }
   }
 
-  void _onSearch(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() => _searchResults = []);
+  void _shareTask() async {
+    if (_selectedUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn người cần chia sẻ!')),
+      );
       return;
     }
-    try {
-      final users = await _userService.searchUsers(query);
-      final userList = users.map((u) {
-        if (u is User) return u;
-        return User.fromJson(u as Map<String, dynamic>);
-      }).toList();
-      setState(() => _searchResults = userList);
-    } catch (_) {
-      setState(() => _searchResults = []);
+
+    final res = await TaskShareService.shareTask(
+      widget.token,
+      widget.taskId,
+      userId: _selectedUserId!,
+      permission: _selectedPermission,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Chia sẻ thành công!')),
+      );
+      _loadData();
     }
   }
 
-  void _shareToUser(User user) async {
-    setState(() => _isLoading = true);
-    try {
-      final success = await _shareService.shareTask(widget.taskId, user.id, _selectedPermission);
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Đã chia sẻ cho ${user.fullName}')),
-          );
-          _loadShares();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể chia sẻ công việc này')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi kết nối: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _revokeUserShare(TaskShare share) async {
-    setState(() => _isLoading = true);
-    try {
-      await _shareService.revokeShare(widget.taskId, share.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã thu hồi quyền chia sẻ')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi thu hồi: $e')),
-        );
-      }
-    } finally {
-      _loadShares();
-      if (mounted) setState(() => _isLoading = false);
+  void _revokeShare(String shareId) async {
+    final res = await TaskShareService.revokeShare(widget.token, widget.taskId, shareId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Đã thu hồi quyền chia sẻ!')),
+      );
+      _loadData();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chia sẻ công việc')),
-      body: Padding(
+      appBar: AppBar(title: Text('Chia sẻ: ${widget.taskTitle}')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_isLoading) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 10),
-            ],
-            TextField(
+            const Text('Chọn người nhận chia sẻ:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
               decoration: const InputDecoration(
-                labelText: 'Tìm người dùng theo email hoặc tên...',
-                prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
-              onChanged: _onSearch,
+              hint: const Text('Chọn thành viên'),
+              initialValue: _selectedUserId,
+              items: _users.map((u) {
+                return DropdownMenuItem<String>(
+                  value: u['_id'],
+                  child: Text('${u['fullName']} (${u['email']})'),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedUserId = val),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
-                const Text('Quyền cấp: '),
-                ChoiceChip(
-                  label: const Text('Xem (Viewer)'),
-                  selected: _selectedPermission == 'viewer',
-                  onSelected: (val) => setState(() => _selectedPermission = 'viewer'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Sửa (Editor)'),
-                  selected: _selectedPermission == 'editor',
-                  onSelected: (val) => setState(() => _selectedPermission = 'editor'),
+                const Text('Phân quyền: ', style: TextStyle(fontWeight: FontWeight.w500)),
+                Expanded(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _selectedPermission,
+                    items: const [
+                      DropdownMenuItem(value: 'viewer', child: Text('Chỉ xem (Viewer)')),
+                      DropdownMenuItem(value: 'editor', child: Text('Chỉnh sửa (Editor)')),
+                    ],
+                    onChanged: (val) => setState(() => _selectedPermission = val!),
+                  ),
                 ),
               ],
             ),
-            const Divider(height: 24),
-
-            if (_searchResults.isNotEmpty) ...[
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Kết quả tìm kiếm:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 1,
-                child: ListView.builder(
-                  itemCount: _searchResults.length,
-                  itemBuilder: (context, index) {
-                    final u = _searchResults[index];
-                    return ListTile(
-                      title: Text(u.fullName),
-                      subtitle: Text(u.email),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.person_add, color: Colors.blue),
-                        onPressed: () => _shareToUser(u),
-                      ),
-                    );
-                  },
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
+                onPressed: _shareTask,
+                child: const Text('Xác nhận chia sẻ', style: TextStyle(fontSize: 16)),
               ),
-              const Divider(),
-            ],
-
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Đã chia sẻ với:', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
+            const Divider(height: 32),
+            const Text('Danh sách người được chia sẻ:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             Expanded(
-              flex: 2,
-              child: _currentShares.isEmpty
-                  ? const Center(child: Text('Chưa chia sẻ với ai'))
+              child: _shares.isEmpty
+                  ? const Center(child: Text('Chưa chia sẻ cho ai!'))
                   : ListView.builder(
-                itemCount: _currentShares.length,
+                itemCount: _shares.length,
                 itemBuilder: (context, index) {
-                  final share = _currentShares[index];
-                  final displayName = share.userName.isNotEmpty
-                      ? share.userName
-                      : (share.userEmail.isNotEmpty ? share.userEmail : share.userId);
-
+                  final share = _shares[index];
+                  final userInfo = share.user;
                   return ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.person),
-                    ),
-                    title: Text(
-                      displayName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${share.userEmail.isNotEmpty && share.userName.isNotEmpty ? "${share.userEmail} • " : ""}Quyền: ${share.permission.toUpperCase()}',
-                    ),
+                    title: Text(userInfo?['fullName'] ?? userInfo?['email'] ?? 'N/A'),
+                    subtitle: Text('Quyền: ${share.permission == 'editor' ? 'Chỉnh sửa' : 'Chỉ xem'}'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => _revokeUserShare(share),
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () => _revokeShare(share.id),
                     ),
                   );
                 },

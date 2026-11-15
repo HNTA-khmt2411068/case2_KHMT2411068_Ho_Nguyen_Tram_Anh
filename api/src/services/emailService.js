@@ -1,42 +1,48 @@
 const transporter = require('../config/email');
 const EmailLog = require('../models/EmailLog');
 
-const sendEmail = async ({ recipientEmail, subject, text, html, eventType, taskId = null }) => {
-  let log;
+exports.sendTaskEmail = async (toEmail, subject, textContent, options = {}) => {
+  const { taskId = null, eventType = 'TASK_NOTIFICATION' } = options;
+  let log = null;
+
   try {
     log = await EmailLog.create({
       taskId,
-      recipientEmail,
+      recipientEmail: toEmail,
       eventType,
       subject,
       status: 'pending',
+      attempts: 1,
     });
+  } catch (logErr) {
+    console.error('Không thể tạo bản ghi EmailLog:', logErr.message);
+  }
 
+  try {
     const mailOptions = {
-      from: `"Task Manager App" <${process.env.EMAIL_USER}>`,
-      to: recipientEmail,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'TaskManager App <no-reply@taskmanager.com>',
+      to: toEmail,
       subject,
-      text,
-      html,
+      text: textContent,
     };
 
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info.response);
 
-    log.status = 'sent';
-    log.sentAt = new Date();
-    await log.save();
+    if (log) {
+      log.status = 'sent';
+      log.sentAt = new Date();
+      await log.save();
+    }
     return true;
   } catch (error) {
+    console.error('Error sending email:', error.message);
+
     if (log) {
       log.status = 'failed';
       log.errorMessage = error.message;
       await log.save();
     }
-    console.error('Lỗi gửi email:', error.message);
     return false;
   }
-};
-
-module.exports = {
-  sendEmail,
 };

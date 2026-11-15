@@ -1,42 +1,57 @@
 import 'dart:convert';
-import 'api_client.dart';
+import 'package:http/http.dart' as http;
 import '../models/task_share.dart';
 
 class TaskShareService {
-  Future<bool> assignTask(String taskId, List<String> assigneeIds, {String? primaryAssigneeId}) async {
-    final response = await ApiClient.post(
-      '/tasks/$taskId/assignees',
-      body: {
-        'assigneeIds': assigneeIds,
-        'primaryAssigneeId': primaryAssigneeId,
+  static const String baseUrl = 'http://10.0.2.2:3000/api/tasks';
+
+  static Future shareTask(
+      String token,
+      String taskId, {
+        required String userId,
+        required String permission,
+      }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/shares'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
-    );
-    return response.statusCode == 200;
-  }
-
-  Future<List<TaskShare>> getShares(String taskId) async {
-    final response = await ApiClient.get('/tasks/$taskId/shares');
-    if (response.statusCode == 200) {
-      List<dynamic> body = jsonDecode(response.body);
-      return body.map((item) => TaskShare.fromJson(item)).toList();
-    } else {
-      throw Exception('Không thể tải danh sách chia sẻ');
-    }
-  }
-
-  Future<bool> shareTask(String taskId, String userId, String permission) async {
-    final response = await ApiClient.post(
-      '/tasks/$taskId/shares',
-      body: {
+      body: jsonEncode({
         'userId': userId,
         'permission': permission,
-      },
+      }),
     );
-    return response.statusCode == 200 || response.statusCode == 201;
+    return jsonDecode(response.body);
   }
 
-  Future<bool> revokeShare(String taskId, String shareId) async {
-    final response = await ApiClient.delete('/tasks/$taskId/shares/$shareId');
-    return response.statusCode == 200;
+  static Future<List<TaskShare>> getTaskShares(String token, String taskId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/$taskId/shares'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((json) => TaskShare.fromJson(json)).toList();
+    }
+    return [];
+  }
+
+  static Future revokeShare(
+      String token,
+      String taskId,
+      String shareId,
+      ) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$taskId/shares/$shareId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return jsonDecode(response.body);
   }
 }

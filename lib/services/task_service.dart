@@ -1,95 +1,187 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/task.dart';
-import '../models/task_activity.dart';
-import 'api_client.dart';
 
 class TaskService {
-  static Future<List<Task>> getTasks({String scope = 'all', String search = ''}) async {
-    String endpoint = '/tasks?scope=$scope';
-    if (search.isNotEmpty) {
-      endpoint += '&q=${Uri.encodeComponent(search)}';
-    }
+  static const String baseUrl = 'http://10.0.2.2:3000/api';
 
-    final response = await ApiClient.get(endpoint);
-
-    print("📥 [GET TASKS] Status: ${response.statusCode}");
-    print("📥 [GET TASKS] Body: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final dynamic decoded = jsonDecode(response.body);
-
-      final List<dynamic> data = (decoded is List)
-          ? decoded
-          : (decoded['tasks'] ?? decoded['data'] ?? []);
-
-      return data.map((json) => Task.fromJson(json)).toList();
-    } else {
-      throw Exception('Không thể tải danh sách (Mã lỗi: ${response.statusCode})');
-    }
-  }
-
-  static Future<dynamic> getTaskById(String taskId) async {
+  static Future<List<Task>> getTasks(String token) async {
     try {
-      final response = await ApiClient.get('/tasks/$taskId');
-      print("📥 [GET TASK BY ID] Status: ${response.statusCode}");
-      print("📥 [GET TASK BY ID] Body: ${response.body}");
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+      final res = await http.get(
+        Uri.parse('$baseUrl/tasks'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        return data.map((item) => Task.fromJson(item as Map<String, dynamic>)).toList();
       }
-      return null;
+      return [];
     } catch (e) {
-      print("❌ [GET TASK BY ID ERROR] $e");
-      return null;
+      print('Lỗi getTasks: $e');
+      return [];
     }
   }
 
-  static Future<bool> createTask(Map<String, dynamic> taskData) async {
-    print("🚀 Đang gửi dữ liệu tạo Task: $taskData");
-    print("🔑 Token hiện tại trong ApiClient: ${ApiClient.token}");
-
-    final response = await ApiClient.post('/tasks', body: taskData);
-
-    print("📥 Response Status: ${response.statusCode}");
-    print("📥 Response Body: ${response.body}");
-
-    return response.statusCode == 201 || response.statusCode == 200;
-  }
-
-  static Future<bool> deleteTask(String taskId) async {
-    final response = await ApiClient.delete('/tasks/$taskId');
-    return response.statusCode == 200;
-  }
-
-  static Future<bool> updateStatus(String taskId, String status) async {
-    final response = await ApiClient.patch('/tasks/$taskId/status', body: {'status': status});
-    return response.statusCode == 200;
-  }
-
-  static Future<bool> updateTask(String taskId, Map<String, dynamic> taskData) async {
-    final response = await ApiClient.put('/tasks/$taskId', body: taskData);
-    return response.statusCode == 200;
-  }
-
-  static Future<bool> assignTask(String taskId, List<dynamic> userIds) async {
-    print("🚀 [ASSIGN TASK] Gửi request giao việc cho Task: $taskId");
-    print("🚀 [ASSIGN TASK] Danh sách userIds: $userIds");
-
-    final response = await ApiClient.post('/tasks/$taskId/assignees', body: {
-      'assigneeIds': userIds,
-    });
-
-    print("📥 [ASSIGN TASK] Status Code: ${response.statusCode}");
-    print("📥 [ASSIGN TASK] Response Body: ${response.body}");
-
-    return response.statusCode == 200 || response.statusCode == 201;
-  }
-  static Future<List<TaskActivity>> getTaskActivities(String taskId) async {
+  static Future createTask(
+      String token, {
+        required String title,
+        required String description,
+        required String priority,
+        required String status,
+        DateTime? startDate,
+        DateTime? dueDate,
+      }) async {
     try {
-      final response = await ApiClient.get('/tasks/$taskId/activities');
-      if (response.statusCode == 200) {
-        final List list = jsonDecode(response.body);
-        return list.map((item) => TaskActivity.fromJson(item)).toList();
+      final res = await http.post(
+        Uri.parse('$baseUrl/tasks'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': title,
+          'description': description,
+          'priority': priority,
+          'status': status,
+          'startDate': startDate?.toIso8601String(),
+          'dueDate': dueDate?.toIso8601String(),
+        }),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Tạo công việc thất bại'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future updateTask(
+      String token,
+      String taskId, {
+        required String title,
+        required String description,
+        required String priority,
+        required String status,
+        DateTime? startDate,
+        DateTime? dueDate,
+      }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/tasks/$taskId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': title,
+          'description': description,
+          'priority': priority,
+          'status': status,
+          'startDate': startDate?.toIso8601String(),
+          'dueDate': dueDate?.toIso8601String(),
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi cập nhật công việc'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future updateTaskStatus(
+      String token,
+      String taskId,
+      String status,
+      ) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/tasks/$taskId/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi cập nhật'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future deleteTask(
+      String token,
+      String taskId,
+      ) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/tasks/$taskId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Lỗi xóa công việc'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future assignTask(
+      String token,
+      String taskId, {
+        required List<String> assigneeIds,
+        String? primaryAssigneeId,
+      }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/tasks/$taskId/assignees'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'assigneeIds': assigneeIds,
+          'primaryAssigneeId': primaryAssigneeId,
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return {
+          'success': true,
+          'data': data,
+          'message': data['message'] ?? 'Phân công thành công!'
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Phân công thất bại'};
+    } catch (e) {
+      return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+    }
+  }
+
+  static Future<List<dynamic>> getTaskActivities(String token, String taskId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/tasks/$taskId/activities'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
       }
       return [];
     } catch (e) {
@@ -97,4 +189,3 @@ class TaskService {
     }
   }
 }
-
