@@ -15,6 +15,18 @@ exports.shareTask = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy công việc!' });
     }
 
+    if (task.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: 'Chỉ người tạo công việc mới có quyền chia sẻ!'
+      });
+    }
+
+    if (userId === task.createdBy.toString() || userId === req.user.id) {
+      return res.status(400).json({
+        message: 'Không thể chia sẻ công việc cho chính người tạo!'
+      });
+    }
+
     const share = await TaskShare.findOneAndUpdate(
       { taskId, userId },
       { permission: permission || 'viewer', sharedBy: req.user.id },
@@ -34,7 +46,7 @@ exports.shareTask = async (req, res) => {
       taskId: task._id,
       type: 'SHARE_SENT',
       title: 'Chia sẻ công việc thành công',
-      message: `Bạn đã chia sẻ công việc "${task.title}" (Quyền: ${permText}) thành công.`,
+      message: `Bạn đã chia sẻ công việc "${task.title}" (Quyền: ${permText}) thành công.`
     });
 
     const recipient = await User.findById(userId);
@@ -44,7 +56,7 @@ exports.shareTask = async (req, res) => {
         taskId: task._id,
         type: 'SHARED',
         title: 'Công việc được chia sẻ',
-        message: `Bạn vừa được chia sẻ công việc: "${task.title}" (Quyền: ${permText})`,
+        message: `Bạn vừa được chia sẻ công việc: "${task.title}" (Quyền: ${permText})`
       });
 
       try {
@@ -84,6 +96,12 @@ exports.revokeShare = async (req, res) => {
     }
 
     const task = await Task.findById(share.taskId);
+    if (task && task.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: 'Chỉ người tạo công việc mới có quyền thu hồi chia sẻ!'
+      });
+    }
+
     const taskTitle = task ? task.title : 'công việc';
 
     await Notification.create({
@@ -91,7 +109,7 @@ exports.revokeShare = async (req, res) => {
       taskId: share.taskId,
       type: 'REVOKE_SENT',
       title: 'Thu hồi quyền thành công',
-      message: `Bạn đã thu hồi quyền truy cập công việc "${taskTitle}" thành công.`,
+      message: `Bạn đã thu hồi quyền truy cập công việc "${taskTitle}" thành công.`
     });
 
     if (share.userId && share.userId.toString() !== req.user.id) {
@@ -100,14 +118,14 @@ exports.revokeShare = async (req, res) => {
         taskId: share.taskId,
         type: 'SHARE_REVOKED',
         title: 'Thu hồi quyền chia sẻ',
-        message: `Quyền truy cập công việc "${taskTitle}" của bạn đã bị thu hồi.`,
+        message: `Quyền truy cập công việc "${taskTitle}" của bạn đã bị thu hồi.`
       });
     }
 
     await TaskActivity.create({
       taskId: share.taskId,
       userId: req.user.id,
-      action: `Đã thu hồi quyền chia sẻ công việc "${taskTitle}"`,
+      action: `Đã thu hồi quyền chia sẻ công việc "${taskTitle}"`
     });
 
     await TaskShare.findByIdAndDelete(shareId);

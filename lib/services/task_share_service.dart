@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/task_share.dart';
 
 class TaskShareService {
-  static const String baseUrl = 'http://10.0.2.2:3000/api/tasks';
+  static const String baseUrl = 'http://10.0.2.2:5000/api/tasks';
 
   static Future shareTask(
       String token,
