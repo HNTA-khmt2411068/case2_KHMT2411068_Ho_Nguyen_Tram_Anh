@@ -42,6 +42,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<dynamic> _assignees = [];
   List<TaskShare> _shares = [];
 
+  static const Color _bgTaroMilk = Color(0xFFF5F0FF);
+  static const Color _taroLight = Color(0xFFEBE0FF);
+  static const Color _taroPrimary = Color(0xFF8367D8);
+  static const Color _taroDark = Color(0xFF3E2D6B);
+  static const Color _taroMuted = Color(0xFF7B6F99);
+  static const Color _taroBorder = Color(0xFFE2D7FA);
+
   @override
   void initState() {
     super.initState();
@@ -138,7 +145,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   bool get _isOwner =>
-      _currentUserId != null && _creatorId != null && _currentUserId == _creatorId;
+      _currentUserId != null &&
+          _creatorId != null &&
+          _currentUserId == _creatorId;
 
   bool get _isPrimaryAssignee =>
       !_isOwner &&
@@ -174,20 +183,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       case 'high':
         return Colors.red;
       case 'medium':
-        return Colors.orange;
+        return Colors.amber.shade800;
       default:
-        return Colors.green;
+        return Colors.teal;
+    }
+  }
+
+  String _getPriorityText(String priority) {
+    switch (priority) {
+      case 'high':
+        return 'Ưu tiên: Cao';
+      case 'medium':
+        return 'Ưu tiên: Trung bình';
+      default:
+        return 'Ưu tiên: Thấp';
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
       case 'completed':
-        return Colors.green;
+        return const Color(0xFF13795B);
       case 'in_progress':
-        return Colors.blue;
+        return _taroPrimary;
       default:
-        return Colors.grey;
+        return _taroMuted;
     }
   }
 
@@ -211,18 +231,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận đổi trạng thái'),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Xác nhận đổi trạng thái',
+          style: TextStyle(color: _taroDark, fontWeight: FontWeight.bold),
+        ),
         content: Text(
           isCompleted
               ? 'Chuyển sang "$label" sẽ gửi email thông báo hoàn thành công việc. Bạn có chắc chắn không?'
               : 'Bạn có chắc muốn chuyển trạng thái công việc sang "$label" không?',
+          style: const TextStyle(color: _taroMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: const Text('Hủy', style: TextStyle(color: _taroMuted)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _taroPrimary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Xác nhận'),
           ),
@@ -273,8 +306,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return FutureBuilder<List<dynamic>>(
@@ -283,40 +317,110 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const SizedBox(
                 height: 300,
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(
+                  child: CircularProgressIndicator(color: _taroPrimary),
+                ),
               );
             }
 
             final activities = snapshot.data ?? [];
 
             return Container(
-              height: 400,
-              padding: const EdgeInsets.all(16),
+              height: 420,
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '📜 Lịch sử hoạt động',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: _taroBorder,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ),
-                  const Divider(),
+                  const Row(
+                    children: [
+                      Icon(Icons.history_rounded, color: _taroPrimary, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Lịch sử hoạt động',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _taroDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFFF0E8FF), height: 22),
                   Expanded(
                     child: activities.isEmpty
-                        ? const Center(child: Text('Chưa có lịch sử hoạt động.'))
+                        ? const Center(
+                      child: Text(
+                        'Chưa có lịch sử hoạt động.',
+                        style: TextStyle(color: _taroMuted),
+                      ),
+                    )
                         : ListView.builder(
                       itemCount: activities.length,
                       itemBuilder: (context, index) {
                         final item = activities[index];
-                        return ListTile(
-                          leading: const Icon(Icons.history_toggle_off,
-                              color: Colors.teal),
-                          title: Text(item['action'] ?? 'Thao tác'),
-                          subtitle: Text(
-                            item['createdAt'] != null
-                                ? item['createdAt']
-                                .toString()
-                                .split('T')[0]
-                                : '',
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFAF8FF),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _taroBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _taroLight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.history_toggle_off_rounded,
+                                  color: _taroPrimary,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item['action'] ?? 'Thao tác',
+                                      style: const TextStyle(
+                                        color: _taroDark,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item['createdAt'] != null
+                                          ? item['createdAt']
+                                          .toString()
+                                          .split('T')[0]
+                                          : '',
+                                      style: const TextStyle(
+                                        color: _taroMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -346,35 +450,69 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Chỉnh sửa công việc'),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Text(
+                'Chỉnh sửa công việc',
+                style: TextStyle(
+                  color: _taroDark,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
                       controller: titleController,
-                      decoration:
-                      const InputDecoration(labelText: 'Tên công việc'),
+                      decoration: InputDecoration(
+                        labelText: 'Tên công việc',
+                        filled: true,
+                        fillColor: const Color(0xFFFAF8FF),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: descController,
-                      decoration: const InputDecoration(labelText: 'Mô tả'),
                       maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Mô tả',
+                        filled: true,
+                        fillColor: const Color(0xFFFAF8FF),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: editPriority,
-                      decoration:
-                      const InputDecoration(labelText: 'Mức độ ưu tiên'),
+                      decoration: InputDecoration(
+                        labelText: 'Mức độ ưu tiên',
+                        filled: true,
+                        fillColor: const Color(0xFFFAF8FF),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                       items: const [
                         DropdownMenuItem(
-                            value: 'low', child: Text('Thấp (Low)')),
+                          value: 'low',
+                          child: Text('Thấp (Low)'),
+                        ),
                         DropdownMenuItem(
-                            value: 'medium',
-                            child: Text('Trung bình (Medium)')),
+                          value: 'medium',
+                          child: Text('Trung bình (Medium)'),
+                        ),
                         DropdownMenuItem(
-                            value: 'high', child: Text('Cao (High)')),
+                          value: 'high',
+                          child: Text('Cao (High)'),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -385,16 +523,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: editStatus,
-                      decoration:
-                      const InputDecoration(labelText: 'Trạng thái'),
+                      decoration: InputDecoration(
+                        labelText: 'Trạng thái',
+                        filled: true,
+                        fillColor: const Color(0xFFFAF8FF),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                       items: const [
                         DropdownMenuItem(
-                            value: 'todo', child: Text('Chưa thực hiện')),
+                          value: 'todo',
+                          child: Text('Chưa thực hiện'),
+                        ),
                         DropdownMenuItem(
-                            value: 'in_progress',
-                            child: Text('Đang thực hiện')),
+                          value: 'in_progress',
+                          child: Text('Đang thực hiện'),
+                        ),
                         DropdownMenuItem(
-                            value: 'completed', child: Text('Đã hoàn thành')),
+                          value: 'completed',
+                          child: Text('Đã hoàn thành'),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -402,12 +551,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.calendar_today, size: 16),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _taroPrimary,
+                              side: const BorderSide(color: _taroBorder),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.calendar_today, size: 15),
                             label: Text(
                               editStartDate == null
                                   ? 'Bắt đầu'
@@ -430,7 +586,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.event, size: 16),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _taroPrimary,
+                              side: const BorderSide(color: _taroBorder),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.event, size: 15),
                             label: Text(
                               editDueDate == null
                                   ? 'Hạn chót'
@@ -458,14 +621,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Hủy'),
+                  child: const Text('Hủy', style: TextStyle(color: _taroMuted)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _taroPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () async {
                     if (titleController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('Vui lòng nhập tên công việc!')),
+                          content: Text('Vui lòng nhập tên công việc!'),
+                        ),
                       );
                       return;
                     }
@@ -495,13 +666,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Cập nhật công việc thành công!')),
+                            content: Text('Cập nhật công việc thành công!'),
+                          ),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content:
-                              Text(res['message'] ?? 'Cập nhật thất bại')),
+                            content: Text(
+                              res['message'] ?? 'Cập nhật thất bại',
+                            ),
+                          ),
                         );
                       }
                     }
@@ -521,15 +695,29 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Bạn có chắc chắn muốn xóa công việc này không?'),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Xác nhận xóa',
+          style: TextStyle(color: _taroDark, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Bạn có chắc chắn muốn xóa công việc này không?',
+          style: TextStyle(color: _taroMuted),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Hủy'),
+            child: const Text('Hủy', style: TextStyle(color: _taroMuted)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () async {
               Navigator.pop(dialogContext);
               final res =
@@ -540,7 +728,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               );
               Navigator.pop(context, true);
             },
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -557,50 +745,50 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     Color textColor;
 
     if (_isOwner) {
-      icon = Icons.verified_user;
+      icon = Icons.verified_user_rounded;
       text = 'Bạn là người tạo công việc này (Toàn quyền quản lý)';
-      bgColor = Colors.teal.shade50;
-      borderColor = Colors.teal.shade200;
-      textColor = Colors.teal.shade900;
+      bgColor = const Color(0xFFE6F7F2);
+      borderColor = const Color(0xFFB7EAD9);
+      textColor = const Color(0xFF13795B);
     } else if (_isPrimaryAssignee) {
-      icon = Icons.star;
+      icon = Icons.star_rounded;
       text = 'Bạn là người phụ trách chính công việc này';
-      bgColor = Colors.amber.shade50;
-      borderColor = Colors.amber.shade300;
-      textColor = Colors.amber.shade900;
+      bgColor = const Color(0xFFFFF4DB);
+      borderColor = const Color(0xFFF7DC99);
+      textColor = const Color(0xFF9A6700);
     } else if (_isAssignee) {
-      icon = Icons.engineering;
+      icon = Icons.engineering_rounded;
       text = 'Bạn được giao thực hiện công việc này';
-      bgColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      textColor = Colors.blue.shade900;
+      bgColor = const Color(0xFFE8F1FF);
+      borderColor = const Color(0xFFC2DAFF);
+      textColor = const Color(0xFF1D5BBF);
     } else if (_sharePermission == 'editor') {
-      icon = Icons.edit_note;
+      icon = Icons.edit_note_rounded;
       text = 'Được chia sẻ với bạn • Quyền: Chỉnh sửa';
-      bgColor = Colors.purple.shade50;
-      borderColor = Colors.purple.shade200;
-      textColor = Colors.purple.shade900;
+      bgColor = _taroLight;
+      borderColor = _taroBorder;
+      textColor = _taroDark;
     } else {
-      icon = Icons.visibility;
+      icon = Icons.visibility_rounded;
       text =
       'Chế độ chỉ xem • Được chia sẻ bởi ${_creatorName.isNotEmpty ? _creatorName : 'người tạo'}';
-      bgColor = Colors.grey.shade100;
-      borderColor = Colors.grey.shade300;
-      textColor = Colors.grey.shade800;
+      bgColor = Colors.white;
+      borderColor = _taroBorder;
+      textColor = _taroMuted;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
           Icon(icon, size: 20, color: textColor),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
@@ -616,8 +804,79 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFEDE6FC)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x128367D8),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildDatePill({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF8FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _taroBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: _taroLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 16, color: _taroPrimary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11, color: _taroMuted),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _taroDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final priorityColor = _getPriorityColor(_priority);
+    final statusColor = _getStatusColor(_status);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -626,259 +885,541 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: _bgTaroMilk,
         appBar: AppBar(
-          title: const Text('Chi tiết công việc'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          titleSpacing: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _taroDark,
+            ),
             onPressed: () => Navigator.pop(context, _hasChanged),
           ),
+          title: const Text(
+            'Chi tiết công việc',
+            style: TextStyle(
+              color: _taroDark,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.history, color: Colors.teal),
-              tooltip: 'Lịch sử hoạt động',
-              onPressed: _showActivitiesDialog,
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: _showActivitiesDialog,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _taroBorder),
+                    ),
+                    child: const Icon(
+                      Icons.history_rounded,
+                      color: _taroPrimary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
             ),
             if (!_isLoadingMeta && _hasMenuActions)
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                tooltip: 'Thao tác',
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    _showEditDialog();
-                  } else if (value == 'assign') {
-                    final changed = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AssignTaskScreen(
-                          token: widget.token,
-                          taskId: widget.task.id,
-                          taskTitle: _title,
-                        ),
-                      ),
-                    );
-                    if (changed == true) {
-                      _hasChanged = true;
-                      _loadTaskContext();
-                    }
-                  } else if (value == 'share') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TaskSharingScreen(
-                          token: widget.token,
-                          taskId: widget.task.id,
-                          taskTitle: _title,
-                        ),
-                      ),
-                    );
-                    _loadTaskContext();
-                  } else if (value == 'delete') {
-                    _confirmDelete();
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (_canEditDetails)
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, color: Colors.orange, size: 20),
-                          SizedBox(width: 10),
-                          Text('Chỉnh sửa'),
-                        ],
-                      ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _taroBorder),
+                  ),
+                  child: PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  if (_canAssign)
-                    const PopupMenuItem(
-                      value: 'assign',
-                      child: Row(
-                        children: [
-                          Icon(Icons.person_add, color: Colors.blue, size: 20),
-                          SizedBox(width: 10),
-                          Text('Giao việc'),
-                        ],
-                      ),
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: _taroDark,
+                      size: 20,
                     ),
-                  if (_canShare)
-                    const PopupMenuItem(
-                      value: 'share',
-                      child: Row(
-                        children: [
-                          Icon(Icons.share, color: Colors.purple, size: 20),
-                          SizedBox(width: 10),
-                          Text('Chia sẻ'),
-                        ],
-                      ),
-                    ),
-                  if (_canDelete) ...[
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red, size: 20),
-                          SizedBox(width: 10),
-                          Text(
-                            'Xóa công việc',
-                            style: TextStyle(color: Colors.red),
+                    tooltip: 'Thao tác',
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        _showEditDialog();
+                      } else if (value == 'assign') {
+                        final changed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AssignTaskScreen(
+                              token: widget.token,
+                              taskId: widget.task.id,
+                              taskTitle: _title,
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                        );
+                        if (changed == true) {
+                          _hasChanged = true;
+                          _loadTaskContext();
+                        }
+                      } else if (value == 'share') {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TaskSharingScreen(
+                              token: widget.token,
+                              taskId: widget.task.id,
+                              taskTitle: _title,
+                            ),
+                          ),
+                        );
+                        _loadTaskContext();
+                      } else if (value == 'delete') {
+                        _confirmDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (_canEditDetails)
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_rounded, color: _taroPrimary, size: 20),
+                              SizedBox(width: 10),
+                              Text('Chỉnh sửa'),
+                            ],
+                          ),
+                        ),
+                      if (_canAssign)
+                        const PopupMenuItem(
+                          value: 'assign',
+                          child: Row(
+                            children: [
+                              Icon(Icons.person_add_alt_1_rounded, color: Colors.blue, size: 20),
+                              SizedBox(width: 10),
+                              Text('Giao việc'),
+                            ],
+                          ),
+                        ),
+                      if (_canShare)
+                        const PopupMenuItem(
+                          value: 'share',
+                          child: Row(
+                            children: [
+                              Icon(Icons.share_rounded, color: Colors.teal, size: 20),
+                              SizedBox(width: 10),
+                              Text('Chia sẻ'),
+                            ],
+                          ),
+                        ),
+                      if (_canDelete) ...[
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                              SizedBox(width: 10),
+                              Text(
+                                'Xóa công việc',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
           ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            children: [
-              _buildRoleBanner(),
-              Text(
-                _title,
-                style:
-                const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+          children: [
+            _buildRoleBanner(),
+            _buildCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Chip(
-                    label: Text(
-                      'Ưu tiên: ${_priority.toUpperCase()}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    backgroundColor: _getPriorityColor(_priority),
-                  ),
-                  Chip(
-                    label: Text(
-                      _getStatusText(_status),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    backgroundColor: _getStatusColor(_status),
-                  ),
-                ],
-              ),
-              if (!_isLoadingMeta && _canUpdateStatus) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'Cập nhật tiến độ nhanh:',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Chưa làm'),
-                      selected: _status == 'todo',
-                      onSelected: (_) => _quickChangeStatus('todo'),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Đang làm'),
-                      selected: _status == 'in_progress',
-                      onSelected: (_) => _quickChangeStatus('in_progress'),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Hoàn thành'),
-                      selected: _status == 'completed',
-                      onSelected: (_) => _quickChangeStatus('completed'),
-                    ),
-                  ],
-                ),
-              ],
-              const Divider(height: 30),
-              const Text(
-                'Mô tả công việc:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _description.isEmpty ? 'Không có mô tả.' : _description,
-                style: const TextStyle(fontSize: 15),
-              ),
-              const SizedBox(height: 20),
-              if (_startDate != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    '📅 Ngày bắt đầu: ${_startDate.toString().split(' ')[0]}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              if (_dueDate != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    '⏰ Hạn hoàn thành: ${_dueDate.toString().split(' ')[0]}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              if (!_isLoadingMeta) ...[
-                const Divider(height: 28),
-                if (_creatorName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      '👑 Người tạo: $_creatorName',
-                      style: const TextStyle(fontSize: 14),
+                  Text(
+                    _title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _taroDark,
                     ),
                   ),
-                const Text(
-                  '👥 Người thực hiện:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const SizedBox(height: 6),
-                if (_assignees.isEmpty)
-                  const Text('Chưa giao cho thành viên nào.',
-                      style: TextStyle(color: Colors.grey))
-                else
-                  ..._assignees.map((u) {
-                    final uid = (u['_id'] ?? u['id'])?.toString();
-                    final isPrim = uid == _primaryAssigneeId;
-                    final name = u['fullName'] ?? u['email'] ?? 'Thành viên';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
-                      child: Text(
-                        isPrim
-                            ? '• $name (Phụ trách chính ⭐)'
-                            : '• $name',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight:
-                          isPrim ? FontWeight.w600 : FontWeight.normal,
-                          color: isPrim ? Colors.amber[900] : Colors.black87,
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getPriorityText(_priority),
+                          style: TextStyle(
+                            color: priorityColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    );
-                  }),
-                if (_shares.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  const Text(
-                    '🔗 Người được chia sẻ:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  const SizedBox(height: 6),
-                  ..._shares.map((s) {
-                    final name = s.user?['fullName'] ??
-                        s.user?['email'] ??
-                        'Thành viên';
-                    final permLabel =
-                    s.permission == 'editor' ? 'Chỉnh sửa' : 'Chỉ xem';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
-                      child: Text(
-                        '• $name ($permLabel)',
-                        style: const TextStyle(fontSize: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getStatusText(_status),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    );
-                  }),
+                    ],
+                  ),
+                  if (!_isLoadingMeta && _canUpdateStatus) ...[
+                    const Divider(color: Color(0xFFF0E8FF), height: 26),
+                    const Text(
+                      'Cập nhật tiến độ nhanh',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: _taroMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final item in [
+                          {'key': 'todo', 'label': 'Chưa làm'},
+                          {'key': 'in_progress', 'label': 'Đang làm'},
+                          {'key': 'completed', 'label': 'Hoàn thành'},
+                        ])
+                          ChoiceChip(
+                            label: Text(item['label']!),
+                            selected: _status == item['key'],
+                            selectedColor: _taroLight,
+                            backgroundColor: const Color(0xFFFAF8FF),
+                            checkmarkColor: _taroPrimary,
+                            labelStyle: TextStyle(
+                              color: _status == item['key']
+                                  ? _taroDark
+                                  : _taroMuted,
+                              fontWeight: _status == item['key']
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              fontSize: 13,
+                            ),
+                            side: BorderSide(
+                              color: _status == item['key']
+                                  ? _taroPrimary
+                                  : _taroBorder,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            onSelected: (_) => _quickChangeStatus(item['key']!),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
-            ],
-          ),
+              ),
+            ),
+            _buildCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        color: _taroPrimary,
+                        size: 19,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Mô tả & Thời hạn',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: _taroDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _description.isEmpty ? 'Không có mô tả.' : _description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: _taroMuted,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (_startDate != null || _dueDate != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        if (_startDate != null)
+                          Expanded(
+                            child: _buildDatePill(
+                              icon: Icons.calendar_today_rounded,
+                              label: 'Ngày bắt đầu',
+                              value: _startDate.toString().split(' ')[0],
+                            ),
+                          ),
+                        if (_startDate != null && _dueDate != null)
+                          const SizedBox(width: 10),
+                        if (_dueDate != null)
+                          Expanded(
+                            child: _buildDatePill(
+                              icon: Icons.event_available_rounded,
+                              label: 'Hạn hoàn thành',
+                              value: _dueDate.toString().split(' ')[0],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!_isLoadingMeta)
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.groups_rounded,
+                          color: _taroPrimary,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Thành viên tham gia',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: _taroDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (_creatorName.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAF8FF),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _taroBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.workspace_premium_rounded,
+                              color: _taroPrimary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Người tạo: ',
+                              style: TextStyle(fontSize: 13, color: _taroMuted),
+                            ),
+                            Expanded(
+                              child: Text(
+                                _creatorName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _taroDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Text(
+                      'Người thực hiện',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: _taroDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_assignees.isEmpty)
+                      const Text(
+                        'Chưa giao cho thành viên nào.',
+                        style: TextStyle(color: _taroMuted, fontSize: 13),
+                      )
+                    else
+                      ..._assignees.map((u) {
+                        final uid = (u['_id'] ?? u['id'])?.toString();
+                        final isPrim = uid == _primaryAssigneeId;
+                        final name = u['fullName'] ?? u['email'] ?? 'Thành viên';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: _taroLight,
+                                child: Text(
+                                  name.toString().isNotEmpty
+                                      ? name.toString()[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _taroPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  name.toString(),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isPrim
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                    color: _taroDark,
+                                  ),
+                                ),
+                              ),
+                              if (isPrim)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF4DB),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Phụ trách chính ⭐',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF9A6700),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                    if (_shares.isNotEmpty) ...[
+                      const Divider(color: Color(0xFFF0E8FF), height: 22),
+                      const Text(
+                        'Người được chia sẻ',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: _taroDark,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ..._shares.map((s) {
+                        final name = s.user?['fullName'] ??
+                            s.user?['email'] ??
+                            'Thành viên';
+                        final isEditor = s.permission == 'editor';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: const Color(0xFFF1EEF8),
+                                child: Text(
+                                  name.toString().isNotEmpty
+                                      ? name.toString()[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _taroMuted,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  name.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: _taroDark,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isEditor
+                                      ? _taroLight
+                                      : const Color(0xFFF1EEF8),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isEditor ? 'Chỉnh sửa' : 'Chỉ xem',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isEditor ? _taroDark : _taroMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

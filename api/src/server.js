@@ -6,16 +6,21 @@ const User = require('./models/User');
 const Notification = require('./models/Notification');
 const emailService = require('./services/emailService');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+const REMINDER_BEFORE_HOURS = Number(process.env.REMINDER_BEFORE_HOURS) || 24;
+const REMINDER_INTERVAL_MINUTES =
+  Number(process.env.REMINDER_INTERVAL_MINUTES) || 1;
+
 const checkUpcomingDueTasks = async () => {
   try {
     const now = new Date();
-    const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const past24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const reminderWindowMs = REMINDER_BEFORE_HOURS * 60 * 60 * 1000;
+    const upcomingLimit = new Date(now.getTime() + reminderWindowMs);
+    const dedupeSince = new Date(now.getTime() - reminderWindowMs);
 
     const upcomingTasks = await Task.find({
       status: { $ne: 'completed' },
-      dueDate: { $gt: now, $lte: next24Hours },
+      dueDate: { $gt: now, $lte: upcomingLimit },
     });
 
     for (const task of upcomingTasks) {
@@ -38,7 +43,7 @@ const checkUpcomingDueTasks = async () => {
           userId: user._id,
           taskId: task._id,
           type: 'DUE_SOON_REMINDER',
-          createdAt: { $gte: past24Hours },
+          createdAt: { $gte: dedupeSince },
         });
 
         if (alreadyReminded) continue;
@@ -52,12 +57,17 @@ const checkUpcomingDueTasks = async () => {
         });
 
         try {
-          await emailService.sendTaskEmail(
+          const sent = await emailService.sendTaskEmail(
             user.email,
             `Nhắc nhở: Công việc "${task.title}" sắp đến hạn`,
             `Xin chào ${user.fullName},\n\nCông việc "${task.title}" của bạn sắp đến hạn hoàn thành vào lúc: ${formattedDue}.\nVui lòng mở ứng dụng TaskManager để kiểm tra và hoàn tất đúng tiến độ!`,
             { taskId: task._id, eventType: 'TASK_DUE_SOON' }
           );
+          if (sent) {
+            console.log(
+              `⏰ Đã gửi email nhắc hạn "${task.title}" tới ${user.email}`
+            );
+          }
         } catch (mailErr) {
           console.error('Lỗi gửi email nhắc hạn:', mailErr.message);
         }
@@ -71,7 +81,10 @@ const checkUpcomingDueTasks = async () => {
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(
+      `⏱️ Bộ nhắc hạn tự động: quét mỗi ${REMINDER_INTERVAL_MINUTES} phút (nhắc trước ${REMINDER_BEFORE_HOURS} giờ)`
+    );
     checkUpcomingDueTasks();
-    setInterval(checkUpcomingDueTasks, 15 * 60 * 1000);
+    setInterval(checkUpcomingDueTasks, REMINDER_INTERVAL_MINUTES * 60 * 1000);
   });
 });
