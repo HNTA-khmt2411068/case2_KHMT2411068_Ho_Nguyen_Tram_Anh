@@ -3,7 +3,7 @@ const User = require('../models/User');
 
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.MONGO_URI ||
+    const mongoURI = process.env.MONGO_URI || 5000
       'mongodb+srv://hntanhkhmt2411068_db_user:20052006@hnta-khmt2411068.le5mxxp.mongodb.net/task_manager?retryWrites=true&w=majority';
 
     const conn = await mongoose.connect(mongoURI);

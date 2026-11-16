@@ -20,7 +20,10 @@ exports.sendTaskEmail = async (toEmail, subject, textContent, options = {}) => {
 
   try {
     const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'TaskManager App <no-reply@taskmanager.com>',
+      from:
+        process.env.EMAIL_FROM ||
+        process.env.EMAIL_USER ||
+        'TaskManager App <no-reply@taskmanager.com>',
       to: toEmail,
       subject,
       text: textContent,
