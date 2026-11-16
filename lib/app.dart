@@ -7,11 +7,18 @@ class TaskManagerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const taroPrimary = Color(0xFF8367D8);
+
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: taroPrimary,
+          primary: taroPrimary,
+          surface: const Color(0xFFF5F0FF),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F0FF),
         useMaterial3: true,
       ),
       home: const LoginScreen(),
