@@ -28,9 +28,16 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
   String? _primaryUserId;
 
   String? _selectedUserId;
-  String _selectedRole = 'member'; // 'member' hoặc 'primary'
+  String _selectedRole = 'member';
   bool _isLoading = true;
   bool _hasChanged = false;
+
+  static const Color _bgTaroMilk = Color(0xFFF5F0FF);
+  static const Color _taroLight = Color(0xFFEBE0FF);
+  static const Color _taroPrimary = Color(0xFF8367D8);
+  static const Color _taroDark = Color(0xFF3E2D6B);
+  static const Color _taroMuted = Color(0xFF7B6F99);
+  static const Color _taroBorder = Color(0xFFE2D7FA);
 
   @override
   void initState() {
@@ -133,7 +140,9 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
   void _assignUser() async {
     if (_selectedUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn thành viên cần giao việc!')),
+        const SnackBar(
+          content: Text('Vui lòng chọn thành viên cần giao việc!'),
+        ),
       );
       return;
     }
@@ -178,6 +187,27 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
     );
   }
 
+  InputDecoration _buildDropdownDecoration(IconData icon) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, color: _taroPrimary, size: 20),
+      filled: true,
+      fillColor: const Color(0xFFFAF8FF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _taroBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _taroBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _taroPrimary, width: 1.6),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final availableUsers = _users.where((u) {
@@ -193,103 +223,213 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: _bgTaroMilk,
         appBar: AppBar(
-          title: Text('Giao việc: ${widget.taskTitle}'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          titleSpacing: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _taroDark,
+            ),
             onPressed: () => Navigator.pop(context, _hasChanged),
+          ),
+          title: Text(
+            'Giao việc: ${widget.taskTitle}',
+            style: const TextStyle(
+              color: _taroDark,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+          child: CircularProgressIndicator(color: _taroPrimary),
+        )
             : Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Chọn người được giao việc:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                hint: Text(
-                  availableUsers.isEmpty
-                      ? 'Đã giao cho tất cả thành viên'
-                      : 'Chọn thành viên',
-                ),
-                initialValue: _selectedUserId,
-                items: availableUsers.map((u) {
-                  final id = (u['_id'] ?? u['id']).toString();
-                  return DropdownMenuItem<String>(
-                    value: id,
-                    child: Text(
-                      '${u['fullName']} (${u['email']})',
-                      overflow: TextOverflow.ellipsis,
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x148367D8),
+                      blurRadius: 22,
+                      offset: Offset(0, 8),
                     ),
-                  );
-                }).toList(),
-                onChanged: availableUsers.isEmpty
-                    ? null
-                    : (val) => setState(() => _selectedUserId = val),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text(
-                    'Vai trò: ',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  Expanded(
-                    child: DropdownButton<String>(
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Chọn người được giao việc',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: _taroDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
                       isExpanded: true,
-                      value: _selectedRole,
+                      dropdownColor: Colors.white,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: _taroPrimary,
+                      ),
+                      decoration: _buildDropdownDecoration(
+                        Icons.person_search_outlined,
+                      ),
+                      hint: Text(
+                        availableUsers.isEmpty
+                            ? 'Đã giao cho tất cả thành viên'
+                            : 'Chọn thành viên',
+                        style: const TextStyle(
+                          color: _taroMuted,
+                          fontSize: 14,
+                        ),
+                      ),
+                      initialValue: _selectedUserId,
+                      items: availableUsers.map((u) {
+                        final id = (u['_id'] ?? u['id']).toString();
+                        return DropdownMenuItem<String>(
+                          value: id,
+                          child: Text(
+                            '${u['fullName']} (${u['email']})',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _taroDark,
+                              fontSize: 14,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: availableUsers.isEmpty
+                          ? null
+                          : (val) =>
+                          setState(() => _selectedUserId = val),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Vai trò thực hiện',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: _taroDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      dropdownColor: Colors.white,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: _taroPrimary,
+                      ),
+                      decoration: _buildDropdownDecoration(
+                        Icons.badge_outlined,
+                      ),
+                      initialValue: _selectedRole,
                       items: const [
                         DropdownMenuItem(
                           value: 'member',
-                          child: Text('Thành viên thực hiện'),
+                          child: Text(
+                            'Thành viên thực hiện',
+                            style: TextStyle(
+                              color: _taroDark,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                         DropdownMenuItem(
                           value: 'primary',
-                          child: Text('Phụ trách chính ⭐'),
+                          child: Text(
+                            'Phụ trách chính ⭐',
+                            style: TextStyle(
+                              color: _taroDark,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                       ],
                       onChanged: (val) =>
                           setState(() => _selectedRole = val!),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 18),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _taroPrimary,
+                        foregroundColor: Colors.white,
+                        elevation: 3,
+                        shadowColor: const Color(0x558367D8),
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: _assignUser,
+                      child: const Text(
+                        'Xác nhận giao việc',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: _assignUser,
-                  child: const Text(
-                    'Xác nhận giao việc',
-                    style: TextStyle(fontSize: 16),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Danh sách người được giao (${_assignedUserIds.length})',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: _taroDark,
                   ),
                 ),
               ),
-              const Divider(height: 32),
-              const Text(
-                'Danh sách người được giao:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Expanded(
                 child: _assignedUserIds.isEmpty
-                    ? const Center(
-                  child: Text('Chưa giao việc cho ai!'),
+                    ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: _taroLight,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.group_off_rounded,
+                          color: _taroPrimary,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Chưa giao việc cho ai!',
+                        style: TextStyle(
+                          color: _taroMuted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 )
                     : ListView.builder(
                   itemCount: _assignedUserIds.length,
@@ -303,33 +443,89 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
                         'Thành viên';
                     final email = userInfo?['email'] ?? '';
 
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(displayName),
-                      subtitle: Text(
-                        isPrimary
-                            ? 'Phụ trách chính ⭐${email.isNotEmpty ? ' • $email' : ''}'
-                            : 'Thành viên thực hiện${email.isNotEmpty ? ' • $email' : ''}',
-                        style: TextStyle(
-                          color: isPrimary
-                              ? Colors.amber[800]
-                              : Colors.grey[700],
-                          fontWeight: isPrimary
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isPrimary
+                              ? const Color(0xFFF5D47A)
+                              : const Color(0xFFEDE6FC),
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0D8367D8),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
                         children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: isPrimary
+                                ? const Color(0xFFFFF4DB)
+                                : _taroLight,
+                            child: Text(
+                              displayName.toString().isNotEmpty
+                                  ? displayName
+                                  .toString()[0]
+                                  .toUpperCase()
+                                  : 'U',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isPrimary
+                                    ? const Color(0xFF9A6700)
+                                    : _taroPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName.toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: _taroDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  isPrimary
+                                      ? 'Phụ trách chính ⭐${email.isNotEmpty ? ' • $email' : ''}'
+                                      : 'Thành viên thực hiện${email.isNotEmpty ? ' • $email' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isPrimary
+                                        ? const Color(0xFF9A6700)
+                                        : _taroMuted,
+                                    fontWeight: isPrimary
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           IconButton(
                             icon: Icon(
                               isPrimary
-                                  ? Icons.star
-                                  : Icons.star_border,
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
                               color: isPrimary
-                                  ? Colors.amber
-                                  : Colors.grey,
+                                  ? const Color(0xFFF59E0B)
+                                  : _taroMuted,
                             ),
                             tooltip:
                             'Đặt làm người phụ trách chính',
@@ -340,8 +536,8 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
                           ),
                           IconButton(
                             icon: const Icon(
-                              Icons.remove_circle,
-                              color: Colors.red,
+                              Icons.remove_circle_outline_rounded,
+                              color: Colors.redAccent,
                             ),
                             tooltip: 'Hủy giao việc',
                             onPressed: () =>
